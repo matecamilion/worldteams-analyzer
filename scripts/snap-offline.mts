@@ -20,7 +20,7 @@ const snapWith = (pick: "cercano" | "pesado") => (f0: Finding): Finding => {
   // Si la corrida ya venía ajustada, se parte de la caja original del modelo.
   const f = f0.modelBox ? { ...f0, box: f0.modelBox } : f0;
   const px = { x: (f.box.x - img.placement.x) / sx, y: (f.box.y - img.placement.y) / sy, w: f.box.w / sx, h: f.box.h / sy };
-  const s = snapToInk(gray, px, { ...DEFAULT_SNAP, pick });
+  const s = snapToInk(gray, px, { ...DEFAULT_SNAP, pick, searchPx: Number(process.env.SEARCH_PX ?? DEFAULT_SNAP.searchPx) });
   if (!s) return f;
   return { ...f, box: { x: img.placement.x + s.x * sx, y: img.placement.y + s.y * sy, w: s.w * sx, h: s.h * sy } };
 };

@@ -20,7 +20,7 @@ export type SnapOptions = {
   pick: "cercano" | "pesado";
 };
 
-export const DEFAULT_SNAP: SnapOptions = { threshold: 110, searchPx: 40, gapFactor: 1.2, pick: "pesado" };
+export const DEFAULT_SNAP: SnapOptions = { threshold: 110, searchPx: 60, gapFactor: 1.2, pick: "pesado" };
 
 export function toGray(data: Uint8Array, width: number, height: number, channels: number): Gray {
   if (channels === 1) return { data, width, height };

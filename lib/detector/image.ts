@@ -10,10 +10,17 @@ import { REFINE_PROMPT } from "../vision/prompt";
 import { snapToInk, toGray } from "./ink";
 
 /** Una pasada de visión: la imagen cortada en mosaicos de un tamaño dado. */
-export type VisionPass = { name: string; tileSize: number; overlap: number };
+export type VisionPass = { name: string; tileSize: number; overlap: number; extraPerAxis?: number };
 
 export const TILES_PASS: VisionPass = { name: "mosaicos", tileSize: 1400, overlap: 250 };
 /** tileSize enorme = un solo mosaico con la página entera. */
+/**
+ * Segunda mirada independiente con la grilla corrida: un mosaico más por eje, así las uniones
+ * caen en otro lugar y el modelo ve cada rótulo con otro encuadre. Sirve para recuperar choques
+ * que la primera pasada pierde al azar.
+ */
+export const SHIFTED_PASS: VisionPass = { name: "corrida", tileSize: 1400, overlap: 250, extraPerAxis: 1 };
+
 export const WHOLE_PAGE_PASS: VisionPass = { name: "pagina", tileSize: 100_000, overlap: 0 };
 
 export type ImageOptions = {
@@ -27,6 +34,11 @@ export type ImageOptions = {
   /** Llamadas simultáneas al proveedor (todas las de la página caben en una tanda). */
   concurrency: number;
   retries: number;
+  /**
+   * Pasado este tiempo desde el inicio de la página no se empieza ningún intento nuevo. Con el
+   * timeout de 50 s por llamada, la página termina antes de los 120 s de maxDuration de la ruta.
+   */
+  deadlineMs: number;
   jpegQuality: number;
   /**
    * Segunda mirada por choque: recorte de la imagen original con `refineMarginPt` de margen,
@@ -46,12 +58,15 @@ export type ImageOptions = {
 // La pasada de página entera está disponible pero apagada por defecto: en 5 corridas medidas
 // (bench/*-ambas-dos-pasadas-*) no rescató ningún choque y agregó 4 marcas de más. Ver README.
 export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
-  passes: [TILES_PASS],
+  // La grilla corrida suma recuperación de choques perdidos al azar (medido: 25/30 → 35/39).
+  passes: [TILES_PASS, SHIFTED_PASS],
   mergeTolerancePt: 25,
   edgeMargin: 6,
   minConfidence: 0.5,
-  concurrency: 8,
+  // 13 llamadas con las dos pasadas: todas en una sola tanda.
+  concurrency: 16,
   retries: 2,
+  deadlineMs: 60_000,
   jpegQuality: 88,
   // Apagado: en 5 corridas medidas el ajuste a tinta solo logra lo mismo sin llamadas extra.
   refine: false,
@@ -76,9 +91,11 @@ export type ImagePageResult = PageResult & {
   tiles: number;
 };
 
-async function withRetries<T>(fn: () => Promise<T>, retries: number): Promise<T> {
-  let last: unknown;
+async function withRetries<T>(fn: () => Promise<T>, retries: number, deadline = Infinity): Promise<T> {
+  let last: unknown = new VisionError("Se agotó el tiempo de la página", false);
   for (let attempt = 0; attempt <= retries; attempt++) {
+    // Sin tiempo para otro intento completo: mejor "no verificada" que un corte de la función.
+    if (Date.now() > deadline) break;
     try {
       return await fn();
     } catch (e) {
@@ -110,6 +127,39 @@ const center = (r: Rect) => [r.x + r.w / 2, r.y + r.h / 2];
  * Une candidatos de distintos mosaicos y pasadas que señalan el mismo lugar. Compara por
  * posición, nunca por texto: dos choques distintos pueden compartir palabras (dos "BAÑO").
  */
+const words = (texts: string[]) =>
+  new Set(
+    texts
+      .join(" ")
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toUpperCase()
+      .split(/[^A-Z0-9]+/)
+      .filter((w) => w.length >= 3),
+  );
+
+/**
+ * Une hallazgos que nombran los mismos textos y están cerca: es el mismo choque visto desde dos
+ * mosaicos con ubicaciones distintas. Se queda con el ajustado a tinta y, entre iguales, el de más confianza.
+ */
+export function dedupeByText(cands: Candidate[], radiusPt: number): Candidate[] {
+  const rank = (c: Candidate) => (c.inkSnapped ? 1 : 0) * 10 + c.confidence;
+  const sorted = [...cands].sort((a, b) => rank(b) - rank(a));
+  const kept: Candidate[] = [];
+  for (const c of sorted) {
+    const wc = words(c.texts);
+    const cx = c.box.x + c.box.w / 2;
+    const cy = c.box.y + c.box.h / 2;
+    const twin = kept.find((k) => {
+      const shared = [...words(k.texts)].filter((w) => wc.has(w)).length;
+      return shared >= 1 && Math.hypot(k.box.x + k.box.w / 2 - cx, k.box.y + k.box.h / 2 - cy) <= radiusPt;
+    });
+    if (twin) twin.passes = [...new Set([...twin.passes, ...c.passes])];
+    else kept.push({ ...c, passes: [...c.passes] });
+  }
+  return kept;
+}
+
 export function mergeCandidates(cands: Candidate[], tolerancePt = 25): Candidate[] {
   const merged: Candidate[] = [];
   for (const c of [...cands].sort((a, b) => b.confidence - a.confidence)) {
@@ -143,6 +193,7 @@ export async function analyzeImagePage(
 ): Promise<ImagePageResult> {
   const opts = { ...DEFAULT_IMAGE_OPTIONS, ...options };
   const started = Date.now();
+  const deadline = started + opts.deadlineMs;
   const [x0, y0, x1, y1] = page.view;
   const pageSize = { width: x1 - x0, height: y1 - y0 };
   const base = {
@@ -165,7 +216,7 @@ export async function analyzeImagePage(
   });
   // Todas las llamadas de todas las pasadas salen juntas: la página tarda lo que tarda el mosaico más lento.
   const jobs = opts.passes.flatMap((pass) =>
-    planTiles(img.width, img.height, pass.tileSize, pass.overlap).map((tile) => ({ pass, tile })),
+    planTiles(img.width, img.height, pass.tileSize, pass.overlap, pass.extraPerAxis).map((tile) => ({ pass, tile })),
   );
 
   const results = await mapLimit(jobs, opts.concurrency, async ({ pass, tile }: { pass: VisionPass; tile: Tile }) => {
@@ -178,6 +229,7 @@ export async function analyzeImagePage(
       const r = await withRetries(
         () => provider.detectOverlaps({ data, mime: "image/jpeg", width: tile.w, height: tile.h }),
         opts.retries,
+        deadline,
       );
       return { pass, tile, ...r, error: null as string | null };
     } catch (e) {
@@ -240,6 +292,7 @@ export async function analyzeImagePage(
               REFINE_PROMPT,
             ),
           opts.retries,
+          deadline,
         );
         base.usage.calls++;
         base.usage.inputTokens += r.usage.inputTokens;
@@ -279,7 +332,8 @@ export async function analyzeImagePage(
       merged.map((c) => {
         const px = { x: (c.box.x - img.placement.x) / sx, y: (c.box.y - img.placement.y) / sy, w: c.box.w / sx, h: c.box.h / sy };
         const snapped = snapToInk(gray, px);
-        if (!snapped) return c;
+        // Un renglón de rótulo mide al menos ~4 pt de alto y ~12 pt de ancho; menos es ruido.
+        if (!snapped || snapped.h * sy < 4 || snapped.w * sx < 12) return c;
         return {
           ...c,
           box: { x: img.placement.x + snapped.x * sx, y: img.placement.y + snapped.y * sy, w: snapped.w * sx, h: snapped.h * sy },
@@ -289,6 +343,11 @@ export async function analyzeImagePage(
       }),
       opts.mergeTolerancePt,
     );
+    // Lo que sólo vio una pasada secundaria y no encaja en ningún renglón de texto no se informa:
+    // la pasada secundaria está para recuperar choques, no para sumar dudas.
+    const primary = opts.passes[0]?.name;
+    merged = merged.filter((c) => c.inkSnapped || c.passes.includes(primary));
+    merged = dedupeByText(merged, 60);
   }
 
   const findings: Finding[] = merged.map((c, i) => ({
@@ -321,7 +380,10 @@ export async function analyzeImagePage(
         ? `No se pudo analizar la página: ${errors[0]}`
         : `Fallaron ${failed} de ${jobs.length} llamadas; el resultado es parcial.`
       : undefined,
-    notes: opts.passes.map((p) => `pasada ${p.name}: mosaicos de ~${Math.min(p.tileSize, Math.max(img.width, img.height))}px, solape ${p.overlap}px`),
+    notes: [
+      ...opts.passes.map((p) => `pasada ${p.name}: mosaicos de ~${Math.min(p.tileSize, Math.max(img.width, img.height))}px, solape ${p.overlap}px`),
+      ...errors.map((e) => `falló ${e}`),
+    ],
     ms: Date.now() - started,
   };
 }

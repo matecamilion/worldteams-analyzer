@@ -7,6 +7,8 @@ import type { VisionUsage } from "./provider";
  */
 export const PRICES: Record<string, { input: number; output: number; offPeakFactor?: number }> = {
   "deepseek:deepseek-flash": { input: 0.3, output: 1.2, offPeakFactor: 0.5 },
+  // Cuota gratuita de Google AI Studio: sin costo, pero Google puede usar los datos enviados.
+  "gemini:gemini-3.5-flash-lite": { input: 0, output: 0, offPeakFactor: 1 },
 };
 
 export function estimateCostUsd(providerKey: string, usage: VisionUsage) {

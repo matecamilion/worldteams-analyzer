@@ -5,11 +5,12 @@ export type Tile = { index: number; x: number; y: number; w: number; h: number }
  * El solape tiene que ser mayor que el rótulo más largo esperable, así cualquier texto
  * entra entero en al menos un mosaico aunque otro lo corte por el borde.
  */
-export function planTiles(width: number, height: number, tileSize: number, overlap: number): Tile[] {
+export function planTiles(width: number, height: number, tileSize: number, overlap: number, extraPerAxis = 0): Tile[] {
   const axis = (len: number) => {
-    if (len <= tileSize) return [{ start: 0, size: len }];
+    if (len <= tileSize && !extraPerAxis) return [{ start: 0, size: len }];
     const step = tileSize - overlap;
-    const count = Math.ceil((len - overlap) / step);
+    // `extraPerAxis` agrega mosaicos por eje: la grilla queda "corrida", con las uniones en otro lugar.
+    const count = Math.max(1, Math.ceil((len - overlap) / step)) + extraPerAxis;
     // Repartimos el sobrante para que todos los mosaicos midan lo mismo.
     const size = Math.ceil((len + overlap * (count - 1)) / count);
     const realStep = (len - size) / (count - 1);

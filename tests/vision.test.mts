@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { planTiles, touchesInnerEdge } from "../lib/detector/tiles";
-import { analyzeImagePage, mergeCandidates } from "../lib/detector/image";
+import { analyzeImagePage, mergeCandidates, TILES_PASS } from "../lib/detector/image";
 import { loadPdf } from "../lib/detector/pdf";
 import { parseBoxes, VisionError, type VisionProvider } from "../lib/vision/provider";
 
@@ -63,7 +63,7 @@ test("si el proveedor falla, la página queda 'no verificada' y no se omite", as
       throw new VisionError("401 clave inválida", false);
     },
   };
-  const r = await analyzeImagePage(6, await doc.getPage(6), failing, { retries: 0 });
+  const r = await analyzeImagePage(6, await doc.getPage(6), failing, { retries: 0, passes: [TILES_PASS] });
   assert.equal(r.tiles, 4);
   assert.equal(r.status, "no_verificada");
   assert.equal(r.page, 6);
@@ -84,4 +84,17 @@ test("el ajuste a tinta lleva una caja corrida y alta al renglón real del choqu
   assert.ok(Math.abs(s.y / S - gt.y) < 1.5, `y ${s.y / S}`);
   assert.ok(Math.abs(s.x / S - gt.x) < 1.5, `x ${s.x / S}`);
   assert.ok(Math.abs(s.w / S - gt.w) < 3, `w ${s.w / S}`);
+});
+
+test("Gemini: box_2d [ymin,xmin,ymax,xmax] 0–1000 se convierte a [x0,y0,x1,y1] 0–1 y se lee de los pasos", async () => {
+  const { extractText, toOurFormat } = await import("../lib/vision/gemini");
+  const { parseBoxes } = await import("../lib/vision/provider");
+  const json = {
+    steps: [
+      { type: "thought", content: [{ type: "thought", text: "pensando {" }] },
+      { type: "model_output", content: [{ type: "text", text: '{"overlaps":[{"box_2d":[100,200,150,600],"texts":["A","B"],"confidence":0.9}]}' }] },
+    ],
+  };
+  const [b] = parseBoxes(toOurFormat(extractText(json)));
+  assert.deepEqual([b.x, b.y, +b.w.toFixed(3), +b.h.toFixed(3)], [0.2, 0.1, 0.4, 0.05]);
 });

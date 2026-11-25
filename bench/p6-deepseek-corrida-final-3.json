@@ -1,0 +1,277 @@
+{
+  "mode": "corrida",
+  "score": {
+    "page": 6,
+    "metric": "iou",
+    "expected": 3,
+    "reported": 4,
+    "truePositives": [
+      "p6-cocina",
+      "p6-banio"
+    ],
+    "falseNegatives": [
+      "p6-estar"
+    ],
+    "falsePositives": [
+      {
+        "id": "p6-ia-2",
+        "page": 6,
+        "severity": "choque",
+        "box": {
+          "x": 368.06029927448606,
+          "y": 417.5835800000001,
+          "w": 42.708431076178954,
+          "h": 6.238309999999999
+        },
+        "boxNorm": {
+          "x": 0.3091511723934981,
+          "y": 0.49600741094618334,
+          "w": 0.0358728218292325,
+          "h": 0.007409889037733916
+        },
+        "texts": [
+          "BAÑO",
+          "VESTIDOR"
+        ],
+        "zone": "sector central izquierdo",
+        "confidence": 0.9,
+        "source": "vision",
+        "originLabel": "Detectado por IA",
+        "provider": "deepseek:deepseek-flash",
+        "passes": [
+          "mosaicos"
+        ],
+        "inkSnapped": true,
+        "modelBox": {
+          "x": 361.83734495767834,
+          "y": 425.63099990000006,
+          "w": 65.5502436517533,
+          "h": 28.84978439999997
+        }
+      },
+      {
+        "id": "p6-ia-3",
+        "page": 6,
+        "severity": "choque",
+        "box": {
+          "x": 181.25650096735188,
+          "y": 560.5848400000001,
+          "w": 81.08843464328902,
+          "h": 28.60025199999984
+        },
+        "boxNorm": {
+          "x": 0.15224586810491803,
+          "y": 0.6658648673496224,
+          "w": 0.0681099936258844,
+          "h": 0.03397149128068761
+        },
+        "texts": [
+          "ESTAR",
+          "COMEDOR"
+        ],
+        "zone": "sector inferior izquierdo",
+        "confidence": 0.95,
+        "source": "vision",
+        "originLabel": "Detectado por IA",
+        "provider": "deepseek:deepseek-flash",
+        "passes": [
+          "corrida",
+          "mosaicos"
+        ],
+        "inkSnapped": true,
+        "modelBox": {
+          "x": 176.48659304715838,
+          "y": 518.3754748,
+          "w": 62.00880296251511,
+          "h": 21.651734399999977
+        }
+      }
+    ],
+    "trapsHit": [],
+    "matches": [
+      {
+        "id": "p6-cocina",
+        "iou": 0.9546915798074145,
+        "centerErr": 0.27331357555385116
+      },
+      {
+        "id": "p6-banio",
+        "iou": 0.9382204235768108,
+        "centerErr": 0.2068610762388535
+      }
+    ]
+  },
+  "costUsd": {
+    "peak": 0.0090966,
+    "offPeak": 0.0045483
+  },
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-ia-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 273.04603688029016,
+            "y": 303.8543900000001,
+            "w": 49.42661124546555,
+            "h": 7.677919999999972
+          },
+          "boxNorm": {
+            "x": 0.22934422045880104,
+            "y": 0.36091943387364955,
+            "w": 0.04151573762259494,
+            "h": 0.009119863431057095
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.93,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "corrida"
+          ],
+          "inkSnapped": true,
+          "modelBox": {
+            "x": 267.1148435308344,
+            "y": 316.2926204000001,
+            "w": 71.54861880290201,
+            "h": 25.26035680000001
+          }
+        },
+        {
+          "id": "p6-ia-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 368.06029927448606,
+            "y": 417.5835800000001,
+            "w": 42.708431076178954,
+            "h": 6.238309999999999
+          },
+          "boxNorm": {
+            "x": 0.3091511723934981,
+            "y": 0.49600741094618334,
+            "w": 0.0358728218292325,
+            "h": 0.007409889037733916
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.9,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ],
+          "inkSnapped": true,
+          "modelBox": {
+            "x": 361.83734495767834,
+            "y": 425.63099990000006,
+            "w": 65.5502436517533,
+            "h": 28.84978439999997
+          }
+        },
+        {
+          "id": "p6-ia-3",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 181.25650096735188,
+            "y": 560.5848400000001,
+            "w": 81.08843464328902,
+            "h": 28.60025199999984
+          },
+          "boxNorm": {
+            "x": 0.15224586810491803,
+            "y": 0.6658648673496224,
+            "w": 0.0681099936258844,
+            "h": 0.03397149128068761
+          },
+          "texts": [
+            "ESTAR",
+            "COMEDOR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "corrida",
+            "mosaicos"
+          ],
+          "inkSnapped": true,
+          "modelBox": {
+            "x": 176.48659304715838,
+            "y": 518.3754748,
+            "w": 62.00880296251511,
+            "h": 21.651734399999977
+          }
+        },
+        {
+          "id": "p6-ia-4",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 347.9057587666263,
+            "y": 588.4173000000001,
+            "w": 51.82596130592503,
+            "h": 8.637659999999999
+          },
+          "boxNorm": {
+            "x": 0.29222242501341084,
+            "y": 0.6989243722872044,
+            "w": 0.043531064691652924,
+            "h": 0.010259846359939267
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.93,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos",
+            "corrida"
+          ],
+          "inkSnapped": true,
+          "modelBox": {
+            "x": 339.5502621160822,
+            "y": 585.9872383200002,
+            "w": 68.17225339782344,
+            "h": 19.23318959999999
+          }
+        }
+      ],
+      "usage": {
+        "inputTokens": 14126,
+        "outputTokens": 4049,
+        "calls": 13
+      },
+      "tiles": 13,
+      "status": "ok",
+      "notes": [
+        "pasada mosaicos: mosaicos de ~1400px, solape 250px",
+        "pasada corrida: mosaicos de ~1400px, solape 250px"
+      ],
+      "ms": 4178
+    }
+  ]
+}

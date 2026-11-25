@@ -1,0 +1,130 @@
+{
+  "mode": "corrida",
+  "score": {
+    "page": 6,
+    "metric": "iou",
+    "expected": 3,
+    "reported": 2,
+    "truePositives": [
+      "p6-cocina",
+      "p6-estar"
+    ],
+    "falseNegatives": [
+      "p6-banio"
+    ],
+    "falsePositives": [],
+    "trapsHit": [],
+    "matches": [
+      {
+        "id": "p6-cocina",
+        "iou": 0.9546915798074145,
+        "centerErr": 0.27331357555385116
+      },
+      {
+        "id": "p6-estar",
+        "iou": 0.8851667128418861,
+        "centerErr": 0.4204089830248717
+      }
+    ]
+  },
+  "costUsd": {
+    "peak": 0.011963399999999999,
+    "offPeak": 0.0059816999999999995
+  },
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-ia-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 347.9057587666263,
+            "y": 588.4173000000001,
+            "w": 51.82596130592503,
+            "h": 8.637659999999999
+          },
+          "boxNorm": {
+            "x": 0.29222242501341084,
+            "y": 0.6989243722872044,
+            "w": 0.043531064691652924,
+            "h": 0.010259846359939267
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.78,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "corrida"
+          ],
+          "inkSnapped": true,
+          "modelBox": {
+            "x": 341.04841629383304,
+            "y": 587.3807808,
+            "w": 57.23889504232164,
+            "h": 14.434489600000012
+          }
+        },
+        {
+          "id": "p6-ia-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 185.70969467956468,
+            "y": 560.5848400000001,
+            "w": 70.06102176541717,
+            "h": 7.198049999999999
+          },
+          "boxNorm": {
+            "x": 0.15598631514508965,
+            "y": 0.6658648673496224,
+            "w": 0.05884755041649377,
+            "h": 0.008549871966616057
+          },
+          "texts": [
+            "ESTAR-COMEDOR",
+            "COMEDOR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.72,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "corrida"
+          ],
+          "inkSnapped": true,
+          "modelBox": {
+            "x": 181.25650096735188,
+            "y": 558.5118016000001,
+            "w": 78.70348068319228,
+            "h": 12.6301784
+          }
+        }
+      ],
+      "usage": {
+        "inputTokens": 4870,
+        "outputTokens": 8752,
+        "calls": 13
+      },
+      "tiles": 13,
+      "status": "no_verificada",
+      "error": "Fallaron 8 de 13 llamadas; el resultado es parcial.",
+      "notes": [
+        "pasada mosaicos: mosaicos de ~1400px, solape 250px",
+        "pasada corrida: mosaicos de ~1400px, solape 250px"
+      ],
+      "ms": 31670
+    }
+  ]
+}

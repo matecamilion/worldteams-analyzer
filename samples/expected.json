@@ -66,9 +66,9 @@
         { "id": "p6-cocina", "texts": ["COCINA", "LAVADERO"], "box": [345, 587, 56, 14], "note": "Rótulo duplicado: hay otro LAVADERO correcto arriba." }
       ],
       "not_clashes": [
-        { "id": "p6-cama", "texts": ["20.00 m²"], "reason": "Texto sobre las líneas de la cama." },
-        { "id": "p6-eje-e", "texts": ["20.00"], "reason": "Cota cruzada por la línea del eje E." },
-        { "id": "p6-puerta", "texts": ["NPT +9.00"], "reason": "NPT de LAVADERO sobre el arco de la puerta." }
+        { "id": "p6-cama", "texts": ["20.00 m²"], "box": [406, 313, 28, 9], "reason": "Texto sobre las líneas de la cama." },
+        { "id": "p6-eje-e", "texts": ["20.00"], "box": [390, 213, 22, 11], "reason": "Cota cruzada por la línea del eje E." },
+        { "id": "p6-puerta", "texts": ["NPT +9.00"], "box": [345, 522, 34, 10], "reason": "NPT de LAVADERO sobre el arco de la puerta." }
       ]
     }
   ]

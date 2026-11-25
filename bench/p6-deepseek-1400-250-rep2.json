@@ -1,0 +1,119 @@
+{
+  "tileSize": 1400,
+  "overlap": 250,
+  "score": {
+    "page": 6,
+    "expected": 3,
+    "reported": 3,
+    "truePositives": [
+      "p6-banio",
+      "p6-cocina",
+      "p6-estar"
+    ],
+    "falseNegatives": [],
+    "falsePositives": [],
+    "trapsHit": []
+  },
+  "costUsd": {
+    "peak": 0.0030863999999999996,
+    "offPeak": 0.0015431999999999998
+  },
+  "balanceDelta": 0,
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-vision-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 265.47848678960094,
+            "y": 286.1903753,
+            "w": 65.5502436517533,
+            "h": 24.041487000000018
+          },
+          "boxNorm": {
+            "x": 0.2229878788829921,
+            "y": 0.3399380480675737,
+            "w": 0.05505873552666471,
+            "h": 0.028556572368497655
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 342.17227186215234,
+            "y": 594.1613439,
+            "w": 62.92823390568317,
+            "h": 15.867381420000013
+          },
+          "boxNorm": {
+            "x": 0.28740659944918984,
+            "y": 0.705747170116564,
+            "w": 0.05285638610559812,
+            "h": 0.018847337763208453
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.8,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-3",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 182.22967735187424,
+            "y": 563.3882405400001,
+            "w": 96.35885816807736,
+            "h": 19.714019340000014
+          },
+          "boxNorm": {
+            "x": 0.15306328476412792,
+            "y": 0.669194757484887,
+            "w": 0.08093634122419713,
+            "h": 0.023416389342168078
+          },
+          "texts": [
+            "ESTAR-COMEDOR",
+            "ESTAR-COMEDOR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.78,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        }
+      ],
+      "usage": {
+        "inputTokens": 4920,
+        "outputTokens": 1342,
+        "calls": 4
+      },
+      "tiles": 4,
+      "status": "ok",
+      "notes": [
+        "4 mosaicos de ~1400px con 250px de solape"
+      ],
+      "ms": 3714
+    }
+  ]
+}

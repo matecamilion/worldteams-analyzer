@@ -2,7 +2,8 @@ import { padRect, rectIntersection, type Rect } from "./geometry";
 import type { Finding } from "./types";
 
 export type ExpectedClash = { id: string; texts: string[]; box: [number, number, number, number] };
-export type ExpectedPage = { page: number; kind: string; clashes: ExpectedClash[] };
+export type ExpectedTrap = { id: string; texts: string[]; box?: [number, number, number, number]; reason: string };
+export type ExpectedPage = { page: number; kind: string; clashes: ExpectedClash[]; not_clashes?: ExpectedTrap[] };
 
 export type PageScore = {
   page: number;
@@ -11,6 +12,8 @@ export type PageScore = {
   truePositives: string[];
   falseNegatives: string[];
   falsePositives: Finding[];
+  /** Trampas (texto sobre línea, casos límite) que el detector marcó como choque. */
+  trapsHit: string[];
 };
 
 const MARGIN_PT = 6;
@@ -36,6 +39,13 @@ export function scorePage(expected: ExpectedPage, findings: Finding[]): PageScor
     truePositives: [...used],
     falseNegatives: expected.clashes.filter((e) => !used.has(e.id)).map((e) => e.id),
     falsePositives: fps,
+    trapsHit: (expected.not_clashes ?? [])
+      .filter((t) => t.box)
+      .filter((t) => {
+        const box: Rect = { x: t.box![0], y: t.box![1], w: t.box![2], h: t.box![3] };
+        return fps.some((f) => rectIntersection(padRect(f.box, MARGIN_PT / 2), box));
+      })
+      .map((t) => t.id),
   };
 }
 

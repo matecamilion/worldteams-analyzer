@@ -28,7 +28,7 @@ export function analyzeVector(
   pageNumber: number,
   info: PageInfo,
   options: Partial<DetectorOptions> = {},
-): Omit<PageResult, "ms"> {
+): Omit<PageResult, "ms" | "status"> {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const boxes = buildTextBoxes(info.items, info.height, opts);
   const findings = detectVectorOverlaps(boxes, { number: pageNumber, width: info.width, height: info.height }, opts);

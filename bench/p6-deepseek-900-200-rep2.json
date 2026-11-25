@@ -1,0 +1,115 @@
+{
+  "tileSize": 900,
+  "overlap": 200,
+  "score": {
+    "page": 6,
+    "expected": 3,
+    "reported": 3,
+    "truePositives": [
+      "p6-banio",
+      "p6-cocina",
+      "p6-estar"
+    ],
+    "falseNegatives": [],
+    "falsePositives": [],
+    "trapsHit": []
+  },
+  "costUsd": 0,
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-vision-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 266.38544111245466,
+            "y": 296.4068076000001,
+            "w": 66.59636027811365,
+            "h": 21.171864400000004
+          },
+          "boxNorm": {
+            "x": 0.22374967251509606,
+            "y": 0.35207316634552416,
+            "w": 0.055937418128774,
+            "h": 0.025148023411140037
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 343.8220649637243,
+            "y": 593.7150648,
+            "w": 66.59636027811366,
+            "h": 17.227332999999994
+          },
+          "boxNorm": {
+            "x": 0.2887923383418741,
+            "y": 0.7052170780546337,
+            "w": 0.055937418128774015,
+            "h": 0.020462693573434425
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-3",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 173.89049628174124,
+            "y": 552.3694656000001,
+            "w": 96.19474262394195,
+            "h": 24.1182662
+          },
+          "boxNorm": {
+            "x": 0.14605881400290993,
+            "y": 0.6561066134783913,
+            "w": 0.08079849285267357,
+            "h": 0.028647771002808204
+          },
+          "texts": [
+            "ESTAR COMEDOR",
+            "LIVING COMEDOR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.85,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        }
+      ],
+      "usage": {
+        "inputTokens": 9288,
+        "outputTokens": 8562,
+        "calls": 12
+      },
+      "tiles": 12,
+      "status": "ok",
+      "notes": [
+        "12 mosaicos de ~900px con 200px de solape"
+      ],
+      "ms": 22913
+    }
+  ]
+}

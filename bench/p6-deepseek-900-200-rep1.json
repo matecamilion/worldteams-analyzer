@@ -1,0 +1,266 @@
+{
+  "tileSize": 900,
+  "overlap": 200,
+  "score": {
+    "page": 6,
+    "expected": 3,
+    "reported": 6,
+    "truePositives": [
+      "p6-cocina",
+      "p6-banio",
+      "p6-estar"
+    ],
+    "falseNegatives": [],
+    "falsePositives": [
+      {
+        "id": "p6-vision-1",
+        "page": 6,
+        "severity": "choque",
+        "box": {
+          "x": 266.38544111245466,
+          "y": 274.0112747000001,
+          "w": 57.346865795042326,
+          "h": 13.781866399999974
+        },
+        "boxNorm": {
+          "x": 0.22374967251509606,
+          "y": 0.32547166470005945,
+          "w": 0.048168332277555403,
+          "h": 0.016370154858747515
+        },
+        "texts": [
+          "BAÑO",
+          "VESTIDOR"
+        ],
+        "zone": "sector central izquierdo",
+        "confidence": 0.95,
+        "source": "vision",
+        "provider": "deepseek:deepseek-flash"
+      },
+      {
+        "id": "p6-vision-5",
+        "page": 6,
+        "severity": "choque",
+        "box": {
+          "x": 177.59029407496976,
+          "y": 559.2603988000001,
+          "w": 92.49494483071341,
+          "h": 20.672799599999998
+        },
+        "boxNorm": {
+          "x": 0.14916644834339737,
+          "y": 0.664291690907765,
+          "w": 0.07769085851218611,
+          "h": 0.024555232288121315
+        },
+        "texts": [
+          "ESTAR COMEDOR",
+          "LIVING COMEDOR"
+        ],
+        "zone": "sector inferior izquierdo",
+        "confidence": 0.82,
+        "source": "vision",
+        "provider": "deepseek:deepseek-flash"
+      },
+      {
+        "id": "p6-vision-6",
+        "page": 6,
+        "severity": "choque",
+        "box": {
+          "x": 340.1222671704957,
+          "y": 572.5432004,
+          "w": 59.1967646916566,
+          "h": 17.227333000000016
+        },
+        "boxNorm": {
+          "x": 0.2856847040013867,
+          "y": 0.6800690546434938,
+          "w": 0.04972214944779913,
+          "h": 0.02046269357343445
+        },
+        "texts": [
+          "COCINA",
+          "VESTIDOR"
+        ],
+        "zone": "sector inferior izquierdo",
+        "confidence": 0.7,
+        "source": "vision",
+        "provider": "deepseek:deepseek-flash"
+      }
+    ],
+    "trapsHit": []
+  },
+  "costUsd": 0,
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-vision-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 266.38544111245466,
+            "y": 274.0112747000001,
+            "w": 57.346865795042326,
+            "h": 13.781866399999974
+          },
+          "boxNorm": {
+            "x": 0.22374967251509606,
+            "y": 0.32547166470005945,
+            "w": 0.048168332277555403,
+            "h": 0.016370154858747515
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 343.8220649637243,
+            "y": 585.1013983,
+            "w": 66.59636027811366,
+            "h": 15.504599699999993
+          },
+          "boxNorm": {
+            "x": 0.2887923383418741,
+            "y": 0.6949857312679165,
+            "w": 0.055937418128774015,
+            "h": 0.01841642421609098
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-3",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 266.38544111245466,
+            "y": 314.13320540000007,
+            "w": 70.29615807134222,
+            "h": 24.1182662
+          },
+          "boxNorm": {
+            "x": 0.22374967251509606,
+            "y": 0.3731286510419773,
+            "w": 0.05904505246926148,
+            "h": 0.028647771002808204
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.92,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-4",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 181.2900918681983,
+            "y": 544.9794676,
+            "w": 96.19474262394195,
+            "h": 20.67279960000002
+          },
+          "boxNorm": {
+            "x": 0.15227408268388481,
+            "y": 0.6473287449259987,
+            "w": 0.08079849285267357,
+            "h": 0.024555232288121343
+          },
+          "texts": [
+            "ESTAR",
+            "COMEDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.9,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-5",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 177.59029407496976,
+            "y": 559.2603988000001,
+            "w": 92.49494483071341,
+            "h": 20.672799599999998
+          },
+          "boxNorm": {
+            "x": 0.14916644834339737,
+            "y": 0.664291690907765,
+            "w": 0.07769085851218611,
+            "h": 0.024555232288121315
+          },
+          "texts": [
+            "ESTAR COMEDOR",
+            "LIVING COMEDOR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.82,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-6",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 340.1222671704957,
+            "y": 572.5432004,
+            "w": 59.1967646916566,
+            "h": 17.227333000000016
+          },
+          "boxNorm": {
+            "x": 0.2856847040013867,
+            "y": 0.6800690546434938,
+            "w": 0.04972214944779913,
+            "h": 0.02046269357343445
+          },
+          "texts": [
+            "COCINA",
+            "VESTIDOR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.7,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        }
+      ],
+      "usage": {
+        "inputTokens": 9288,
+        "outputTokens": 6439,
+        "calls": 12
+      },
+      "tiles": 12,
+      "status": "ok",
+      "notes": [
+        "12 mosaicos de ~900px con 200px de solape"
+      ],
+      "ms": 22750
+    }
+  ]
+}

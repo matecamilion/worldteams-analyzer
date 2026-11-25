@@ -61,6 +61,9 @@ export type PageResult = {
   height: number;
   textCount: number;
   findings: Finding[];
+  /** "no_verificada": la página no pudo analizarse (o sólo en parte). Nunca se omite. */
+  status: "ok" | "no_verificada";
+  error?: string;
   ms: number;
   notes?: string[];
 };

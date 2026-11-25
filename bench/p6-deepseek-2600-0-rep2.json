@@ -1,0 +1,115 @@
+{
+  "tileSize": 2600,
+  "overlap": 0,
+  "score": {
+    "page": 6,
+    "expected": 3,
+    "reported": 3,
+    "truePositives": [
+      "p6-banio",
+      "p6-estar",
+      "p6-cocina"
+    ],
+    "falseNegatives": [],
+    "falsePositives": [],
+    "trapsHit": []
+  },
+  "costUsd": 0,
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-vision-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 279.7810125,
+            "y": 304.7891767600001,
+            "w": 51.193972500000044,
+            "h": 13.46707168000001
+          },
+          "boxNorm": {
+            "x": 0.2350012435416469,
+            "y": 0.3620297772463808,
+            "w": 0.043000227541663084,
+            "h": 0.015996240458074216
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.9,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 186.91752749999998,
+            "y": 568.2387665000001,
+            "w": 83.339025,
+            "h": 14.308763659999919
+          },
+          "boxNorm": {
+            "x": 0.15700083079165345,
+            "y": 0.6749562312074574,
+            "w": 0.07000037041666078,
+            "h": 0.016996005486703745
+          },
+          "texts": [
+            "ESTAR-COMEDOR",
+            "ESTAR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.65,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        },
+        {
+          "id": "p6-vision-3",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 339.3088874999999,
+            "y": 590.96444996,
+            "w": 58.33731750000005,
+            "h": 15.150455640000011
+          },
+          "boxNorm": {
+            "x": 0.285001508124976,
+            "y": 0.7019498869804576,
+            "w": 0.04900025929166259,
+            "h": 0.017995770515333492
+          },
+          "texts": [
+            "CORREDOR",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.6,
+          "source": "vision",
+          "provider": "deepseek:deepseek-flash"
+        }
+      ],
+      "usage": {
+        "inputTokens": 1402,
+        "outputTokens": 2685,
+        "calls": 1
+      },
+      "tiles": 1,
+      "status": "ok",
+      "notes": [
+        "1 mosaicos de ~2600px con 0px de solape"
+      ],
+      "ms": 13234
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "file": "planos-prueba.pdf",
+  "units": "pt, origen arriba-izquierda, página 1190.55 x 841.89",
+  "matching": "Un hallazgo de severidad 'choque' acierta si su caja (con 6 pt de margen) se pisa con la caja esperada. Se compara por posición, nunca por texto: hay rótulos repetidos (BAÑO, LAVADERO, ESTAR-COMEDOR) y uno de los repetidos es justo el que choca.",
+  "relevamiento": "Cajas de páginas 1-5 medidas con pdfjs y verificadas a ojo sobre el render. Página 6 relevada a mano sobre recortes a 220 dpi (cajas aproximadas, la imagen está levemente torcida).",
+  "pages": [
+    {
+      "page": 1,
+      "kind": "vector",
+      "clashes": [
+        { "id": "p1-hall", "texts": ["HALL DE ACCESO", "VER DETALLE D-4"], "box": [141, 571, 71, 12] },
+        { "id": "p1-pileta", "texts": ["BAÑO", "PILETA DE PATIO"], "box": [264, 301, 61, 9] }
+      ],
+      "not_clashes": [
+        { "id": "p1-ascensor", "texts": ["ASCENSOR", "1,10x1,30"], "reason": "Caso límite: separados 2,0 pt, la tinta no se toca. Se informa como cercanía." },
+        { "id": "p1-deposito", "texts": ["PILETA DE PATIO", "DEPÓSITO"], "reason": "Separados 1,4 pt." }
+      ]
+    },
+    {
+      "page": 2,
+      "kind": "vector",
+      "clashes": [],
+      "not_clashes": [
+        { "id": "p2-anafe", "texts": ["COCINA", "ANAFE"], "reason": "Caso límite: separados 2,0 pt." },
+        { "id": "p2-placard", "texts": ["DORMITORIO 1", "PLACARD"], "reason": "Caso límite: texto al lado, sin pisarse." },
+        { "id": "p2-cama", "texts": ["20.00 m²"], "reason": "Texto que cruza las líneas de la cama: texto sobre dibujo, no texto sobre texto." },
+        { "id": "p2-eje-e", "texts": ["20.00"], "reason": "Cota cruzada por la línea del eje E." },
+        { "id": "p2-puerta", "texts": ["NPT +3.00"], "reason": "NPT de LAVADERO sobre el arco de la puerta." }
+      ]
+    },
+    {
+      "page": 3,
+      "kind": "vector",
+      "clashes": [
+        { "id": "p3-corte", "texts": ["NPT +6.00", "VER CORTE B-B"], "box": [205, 576, 57, 8] },
+        { "id": "p3-eje-c", "texts": ["C", "4.00"], "box": [310, 194, 14, 10] },
+        { "id": "p3-dorm2", "texts": ["DORMITORIO 2", "12.00 m²"], "box": [388, 302, 59, 11] }
+      ],
+      "not_clashes": [
+        { "id": "p3-palier", "texts": ["PALIER", "H=2,60"], "reason": "Caso límite: separados 2,0 pt." }
+      ]
+    },
+    {
+      "page": 4,
+      "kind": "vector",
+      "clashes": [
+        { "id": "p4-tanque", "texts": ["SALIDA A TERRAZA", "TANQUE 1000 L"], "box": [534, 470, 91, 10] },
+        { "id": "p4-fecha", "texts": ["15/09/2026", "REV. B 02/10/2026"], "box": [930, 744, 80, 10], "note": "Texto mezclado: dos fechas en el rótulo, la nueva escrita encima de la anterior." }
+      ],
+      "not_clashes": []
+    },
+    {
+      "page": 5,
+      "kind": "vector",
+      "clashes": [],
+      "not_clashes": [
+        { "id": "p5-rampa", "texts": ["RAMPA", "PEND. 15%"], "reason": "Caso límite: texto al lado, sin pisarse." }
+      ]
+    },
+    {
+      "page": 6,
+      "kind": "image",
+      "clashes": [
+        { "id": "p6-banio", "texts": ["BAÑO", "VESTIDOR"], "box": [270, 302, 56, 13], "note": "Rótulo duplicado: hay otro BAÑO correcto más abajo." },
+        { "id": "p6-estar", "texts": ["ESTAR-COMEDOR", "MESADA 2,40"], "box": [183, 557, 76, 14], "note": "Texto mezclado, el segundo no se lee completo." },
+        { "id": "p6-cocina", "texts": ["COCINA", "LAVADERO"], "box": [345, 587, 56, 14], "note": "Rótulo duplicado: hay otro LAVADERO correcto arriba." }
+      ],
+      "not_clashes": [
+        { "id": "p6-cama", "texts": ["20.00 m²"], "reason": "Texto sobre las líneas de la cama." },
+        { "id": "p6-eje-e", "texts": ["20.00"], "reason": "Cota cruzada por la línea del eje E." },
+        { "id": "p6-puerta", "texts": ["NPT +9.00"], "reason": "NPT de LAVADERO sobre el arco de la puerta." }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,133 @@
+"use client";
+
+import type { NumberedFinding } from "@/lib/detector/report";
+import { SEVERITY_LABEL } from "@/lib/detector/report";
+import type { PageResult } from "@/lib/detector/types";
+import type { PageStatus } from "./PageView";
+
+type PageEntry = { page: number; status: PageStatus; result?: PageResult };
+
+type Props = {
+  pages: PageEntry[];
+  findings: NumberedFinding[];
+  crops: Record<string, string>;
+  selectedId: string | null;
+  showNear: boolean;
+  onToggleNear: (v: boolean) => void;
+  onSelect: (id: string) => void;
+  onRetry: (page: number) => void;
+};
+
+// Espacio no separable: el "%" no queda solo en otro renglón.
+const pct = (v: number) => `${Math.round(v * 100)} %`;
+
+export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onToggleNear, onSelect, onRetry }: Props) {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between gap-3 border-b border-linea px-4 py-3">
+        <h2 className="font-display text-base font-semibold">Hallazgos</h2>
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-gris">
+          <input
+            type="checkbox"
+            checked={showNear}
+            onChange={(e) => onToggleNear(e.target.checked)}
+            className="h-4 w-4 accent-verde"
+          />
+          Mostrar cercanías
+        </label>
+      </div>
+
+      <ol className="flex-1 overflow-y-auto" aria-label="Hallazgos por página">
+        {pages.map((p) => {
+          const own = findings.filter((f) => f.page === p.page && (showNear || f.severity !== "cercania"));
+          const hidden = findings.filter((f) => f.page === p.page && !showNear && f.severity === "cercania").length;
+          return (
+            <li key={p.page} className="border-b border-linea last:border-b-0">
+              <div className="sticky top-0 z-10 flex items-baseline justify-between bg-papel/95 px-4 py-2 backdrop-blur-sm">
+                <h3 className="text-sm font-semibold">Página {p.page}</h3>
+                <span className="text-xs text-gris">
+                  {p.result?.kind === "image" ? "Escaneada" : p.result?.kind === "vector" ? "Vectorial" : ""}
+                </span>
+              </div>
+
+              {p.status === "pendiente" && <p className="px-4 pb-3 text-sm text-gris">En espera</p>}
+              {p.status === "analizando" && (
+                <p className="px-4 pb-3 text-sm text-tinta" aria-busy="true">
+                  Analizando…
+                </p>
+              )}
+              {p.status === "no_verificada" && (
+                <div className="mx-4 mb-3 rounded border border-cercania/40 bg-cercania-suave px-3 py-2 text-sm">
+                  <p className="font-semibold text-cercania">Página no verificada</p>
+                  <p className="mt-0.5 text-tinta">{p.result?.error ?? "No se pudo analizar."}</p>
+                  <button
+                    type="button"
+                    onClick={() => onRetry(p.page)}
+                    className="mt-2 rounded border border-linea-fuerte bg-hoja px-2.5 py-1 font-medium hover:bg-papel"
+                  >
+                    Reintentar página {p.page}
+                  </button>
+                </div>
+              )}
+              {p.status === "ok" && own.length === 0 && (
+                <p className="px-4 pb-3 text-sm text-ok">
+                  Sin choques{hidden ? ` · ${hidden} ${hidden === 1 ? "cercanía oculta" : "cercanías ocultas"}` : ""}
+                </p>
+              )}
+
+              {own.length > 0 && (
+                <ul className="pb-2">
+                  {own.map((f) => {
+                    const selected = f.id === selectedId;
+                    const badge = f.severity === "choque" ? "bg-choque" : f.severity === "cercania" ? "bg-cercania" : "bg-gris";
+                    return (
+                      <li key={f.id}>
+                        <button
+                          type="button"
+                          onClick={() => onSelect(f.id)}
+                          aria-current={selected ? "true" : undefined}
+                          className={`grid w-full grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-2.5 text-left hover:bg-papel ${
+                            selected ? "bg-papel shadow-[inset_3px_0_0_var(--color-verde)]" : ""
+                          }`}
+                        >
+                          <span
+                            className={`num mt-0.5 grid h-6 min-w-6 place-items-center rounded-full px-1 text-xs font-bold text-white ${badge}`}
+                          >
+                            {f.n}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-semibold break-words">{f.texts.join(" × ") || "Textos ilegibles"}</span>
+                            <span className="mt-0.5 block text-xs text-gris">
+                              <span className={f.severity === "choque" ? "font-semibold text-choque" : f.severity === "cercania" ? "font-semibold text-cercania" : ""}>
+                                {SEVERITY_LABEL[f.severity]}
+                              </span>
+                              {" · "}
+                              {f.zone}
+                            </span>
+                            <span className="mt-0.5 block text-xs text-gris">
+                              {f.originLabel} · confianza <span className="num">{pct(f.confidence)}</span>
+                            </span>
+                          </span>
+                          {crops[f.id] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={crops[f.id]}
+                              alt=""
+                              className="h-14 w-24 rounded-sm border border-linea bg-hoja object-contain"
+                            />
+                          ) : (
+                            <span className="h-14 w-24 animate-pulse rounded-sm bg-linea/60" aria-hidden />
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}

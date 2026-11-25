@@ -3,6 +3,7 @@ import { analyzeVector, inspectPage } from "@/lib/detector/analyze";
 import { analyzeImagePage } from "@/lib/detector/image";
 import { getVisionProvider } from "@/lib/vision";
 import type { PageResult } from "@/lib/detector/types";
+import { requireToolAccess } from "@/lib/guard";
 
 export const runtime = "nodejs";
 /**
@@ -14,8 +15,13 @@ export const maxDuration = 120;
 
 const MAX_PDF_BYTES = 4 * 1024 * 1024; // Vercel acepta cuerpos de hasta 4,5 MB.
 
-// TODO(etapa login): exigir sesión, allowlist y video completo, y leer el PDF desde Storage.
+// TODO(etapa Supabase): leer el PDF desde Storage en vez de reenviarlo en cada request.
 export async function POST(request: Request) {
+  // El bloqueo se valida acá, en el servidor: ocultar el botón no alcanza.
+  const access = await requireToolAccess();
+  if (!access.ok) {
+    return Response.json({ error: "Terminá el video de inducción para usar la herramienta." }, { status: 403 });
+  }
   const url = new URL(request.url);
   const pageNumber = Number(url.searchParams.get("page"));
   if (!Number.isInteger(pageNumber) || pageNumber < 1) {

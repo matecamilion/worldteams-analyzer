@@ -1,23 +1,24 @@
 @import "tailwindcss";
 
 /*
-  Tokens. Colores de marca WorldTeams (verde, lima, salvia) sobre un fondo gris-papel frío,
-  propio de una herramienta técnica. El lima sólo marca estados "completo"; los choques se
-  señalan con un rojo de revisión, como la birome roja sobre un plano.
+  Tokens. Colores de marca WorldTeams: crema de fondo, verde para la estructura, salvia de apoyo.
+  El lima sólo marca estados "completo". Los choques se señalan con rojo de revisión (como la
+  birome roja sobre un plano) y las cercanías con ámbar punteado.
 */
 @theme {
-  --color-papel: #f4f6f5;
+  --color-papel: #fff7f3;
   --color-hoja: #ffffff;
   --color-tinta: #0d211f;
   --color-verde: #142d2b;
   --color-salvia: #58958c;
   --color-gris: #5b6b68;
-  --color-linea: #d5dcda;
+  --color-linea: #e4dcd6;
+  --color-linea-fuerte: #c9beb6;
   --color-lima: #d0ef76;
   --color-choque: #c2261d;
   --color-choque-suave: #fbe9e7;
-  --color-duda: #9a6200;
-  --color-duda-suave: #fdf3dc;
+  --color-cercania: #9a6200;
+  --color-cercania-suave: #fdf3dc;
   --color-ok: #2f6b4f;
 
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
@@ -51,4 +52,18 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Caja de hallazgo recién enfocada desde la lista: un solo pulso para encontrarla en la hoja. */
+@keyframes foco-hallazgo {
+  0% { box-shadow: 0 0 0 0 rgb(194 38 29 / 0.55); }
+  100% { box-shadow: 0 0 0 14px rgb(194 38 29 / 0); }
+}
+.hallazgo-enfocado {
+  animation: foco-hallazgo 0.9s ease-out 2;
+}
+
+@keyframes barrido {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
 }

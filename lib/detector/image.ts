@@ -6,6 +6,8 @@ import { planTiles, touchesInnerEdge, type Tile } from "./tiles";
 import { ORIGIN_LABEL, type Finding, type PageResult } from "./types";
 import { sectorName } from "./zones";
 import { VisionError, type VisionBox, type VisionProvider, type VisionUsage } from "../vision/provider";
+import { REFINE_PROMPT } from "../vision/prompt";
+import { snapToInk, toGray } from "./ink";
 
 /** Una pasada de visión: la imagen cortada en mosaicos de un tamaño dado. */
 export type VisionPass = { name: string; tileSize: number; overlap: number };
@@ -26,6 +28,19 @@ export type ImageOptions = {
   concurrency: number;
   retries: number;
   jpegQuality: number;
+  /**
+   * Segunda mirada por choque: recorte de la imagen original con `refineMarginPt` de margen,
+   * ampliado ×`refineUpscale`, para ajustar la caja. El error de ubicación de la primera pasada
+   * es aleatorio (±9 pt, medido), así que no se corrige con un desplazamiento fijo.
+   */
+  refine: boolean;
+  refineMarginPt: number;
+  refineUpscale: number;
+  /**
+   * Ajuste a tinta: toma la caja del modelo como pista y la ajusta al renglón de texto real
+   * (el de más tinta que toca la caja). Medido offline sobre 18 corridas: IoU medio 0,40 → 0,92.
+   */
+  inkSnap: boolean;
 };
 
 // La pasada de página entera está disponible pero apagada por defecto: en 5 corridas medidas
@@ -38,9 +53,23 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   concurrency: 8,
   retries: 2,
   jpegQuality: 88,
+  // Apagado: en 5 corridas medidas el ajuste a tinta solo logra lo mismo sin llamadas extra.
+  refine: false,
+  refineMarginPt: 40,
+  refineUpscale: 2,
+  inkSnap: true,
 };
 
-export type Candidate = { box: Rect; texts: string[]; confidence: number; tiles: string[]; passes: string[] };
+export type Candidate = {
+  box: Rect;
+  texts: string[];
+  confidence: number;
+  tiles: string[];
+  passes: string[];
+  refinement?: "ajustada" | "sin_confirmar" | "error";
+  inkSnapped?: boolean;
+  modelBox?: Rect;
+};
 
 export type ImagePageResult = PageResult & {
   usage: VisionUsage & { calls: number };
@@ -185,7 +214,84 @@ export async function analyzeImagePage(
     }
   }
 
-  const findings: Finding[] = mergeCandidates(candidates, opts.mergeTolerancePt).map((c, i) => ({
+  let merged = mergeCandidates(candidates, opts.mergeTolerancePt);
+
+  if (opts.refine && merged.length) {
+    const ptPerPx = { x: sx, y: sy };
+    const refined = await mapLimit(merged, opts.concurrency, async (c): Promise<Candidate> => {
+      const m = opts.refineMarginPt;
+      const left = Math.max(0, Math.floor((c.box.x - m - img.placement.x) / ptPerPx.x));
+      const top = Math.max(0, Math.floor((c.box.y - m - img.placement.y) / ptPerPx.y));
+      const right = Math.min(img.width, Math.ceil((c.box.x + c.box.w + m - img.placement.x) / ptPerPx.x));
+      const bottom = Math.min(img.height, Math.ceil((c.box.y + c.box.h + m - img.placement.y) / ptPerPx.y));
+      const w = right - left;
+      const h = bottom - top;
+      const data = await source
+        .clone()
+        .extract({ left, top, width: w, height: h })
+        .resize({ width: w * opts.refineUpscale, height: h * opts.refineUpscale, kernel: "lanczos3" })
+        .jpeg({ quality: 92 })
+        .toBuffer();
+      try {
+        const r = await withRetries(
+          () =>
+            provider.detectOverlaps(
+              { data, mime: "image/jpeg", width: w * opts.refineUpscale, height: h * opts.refineUpscale },
+              REFINE_PROMPT,
+            ),
+          opts.retries,
+        );
+        base.usage.calls++;
+        base.usage.inputTokens += r.usage.inputTokens;
+        base.usage.outputTokens += r.usage.outputTokens;
+        // De lo que devuelva, nos quedamos con la caja más cercana al choque original.
+        const ocx = (c.box.x + c.box.w / 2 - img.placement.x) / ptPerPx.x;
+        const ocy = (c.box.y + c.box.h / 2 - img.placement.y) / ptPerPx.y;
+        const toPt = (b: VisionBox): Rect => ({
+          x: img.placement.x + (left + b.x * w) * ptPerPx.x,
+          y: img.placement.y + (top + b.y * h) * ptPerPx.y,
+          w: b.w * w * ptPerPx.x,
+          h: b.h * h * ptPerPx.y,
+        });
+        const best = r.boxes
+          .map((b) => ({ b, d: Math.hypot(left + (b.x + b.w / 2) * w - ocx, top + (b.y + b.h / 2) * h - ocy) }))
+          .sort((a, b) => a.d - b.d)[0];
+        if (!best) return { ...c, confidence: c.confidence * 0.8, refinement: "sin_confirmar" };
+        return {
+          ...c,
+          box: toPt(best.b),
+          texts: best.b.texts.length >= c.texts.length ? best.b.texts : c.texts,
+          confidence: Math.max(c.confidence, best.b.confidence),
+          refinement: "ajustada",
+        };
+      } catch {
+        base.usage.calls++;
+        return { ...c, refinement: "error" };
+      }
+    });
+    // Dos candidatos pueden haber convergido al mismo choque al ajustarse.
+    merged = mergeCandidates(refined, opts.mergeTolerancePt);
+  }
+
+  if (opts.inkSnap && merged.length) {
+    const gray = toGray(img.data, img.width, img.height, img.channels);
+    merged = mergeCandidates(
+      merged.map((c) => {
+        const px = { x: (c.box.x - img.placement.x) / sx, y: (c.box.y - img.placement.y) / sy, w: c.box.w / sx, h: c.box.h / sy };
+        const snapped = snapToInk(gray, px);
+        if (!snapped) return c;
+        return {
+          ...c,
+          box: { x: img.placement.x + snapped.x * sx, y: img.placement.y + snapped.y * sy, w: snapped.w * sx, h: snapped.h * sy },
+          modelBox: c.box,
+          inkSnapped: true,
+        };
+      }),
+      opts.mergeTolerancePt,
+    );
+  }
+
+  const findings: Finding[] = merged.map((c, i) => ({
     id: `p${pageNumber}-ia-${i + 1}`,
     page: pageNumber,
     severity: "choque",
@@ -199,6 +305,9 @@ export async function analyzeImagePage(
     originLabel: ORIGIN_LABEL.vision,
     provider: `${provider.name}:${provider.model}`,
     passes: c.passes,
+    refinement: c.refinement,
+    inkSnapped: c.inkSnapped,
+    modelBox: c.modelBox,
   }));
 
   const failed = errors.length;

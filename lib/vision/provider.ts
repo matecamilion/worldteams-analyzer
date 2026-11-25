@@ -25,7 +25,8 @@ export type VisionImage = {
 export interface VisionProvider {
   readonly name: string;
   readonly model: string;
-  detectOverlaps(image: VisionImage): Promise<{ boxes: VisionBox[]; usage: VisionUsage; raw: string }>;
+  /** `prompt` permite reutilizar la llamada para el refinamiento sobre un recorte. */
+  detectOverlaps(image: VisionImage, prompt?: string): Promise<{ boxes: VisionBox[]; usage: VisionUsage; raw: string }>;
 }
 
 export class VisionError extends Error {

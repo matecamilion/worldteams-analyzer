@@ -54,6 +54,12 @@ export type Finding = {
   provider?: string;
   /** Pasadas de visión que vieron este choque ("mosaicos", "pagina"). */
   passes?: string[];
+  /** Resultado de la segunda mirada sobre el recorte (sólo visión). */
+  refinement?: "ajustada" | "sin_confirmar" | "error";
+  /** La caja se ajustó a la tinta del renglón real (sólo visión). */
+  inkSnapped?: boolean;
+  /** Caja original del modelo antes del ajuste a tinta (para auditar y volver a medir). */
+  modelBox?: Rect;
 };
 
 export const ORIGIN_LABEL = { vector: "Texto del PDF", vision: "Detectado por IA" } as const;

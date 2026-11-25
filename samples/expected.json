@@ -2,7 +2,8 @@
   "file": "planos-prueba.pdf",
   "units": "pt, origen arriba-izquierda, página 1190.55 x 841.89",
   "matching": "Un hallazgo de severidad 'choque' acierta si su caja (con 6 pt de margen) se pisa con la caja esperada. Se compara por posición, nunca por texto: hay rótulos repetidos (BAÑO, LAVADERO, ESTAR-COMEDOR) y uno de los repetidos es justo el que choca.",
-  "relevamiento": "Cajas de páginas 1-5 medidas con pdfjs y verificadas a ojo sobre el render. Página 6 relevada a mano sobre recortes a 220 dpi (cajas aproximadas, la imagen está levemente torcida).",
+  "relevamiento": "Cajas de páginas 1-5 medidas con pdfjs y verificadas a ojo sobre el render. Página 6: cajas de tinta medidas sobre los píxeles de la imagen embebida (renglón del rótulo que choca, umbral de gris 110), no a ojo.",
+  "metrica": "Un choque informado acierta si su IoU con la caja esperada es >= 0,3 (emparejamiento uno a uno, mayor IoU primero). Se informa además el IoU medio y el error del centro en pt.",
   "pages": [
     {
       "page": 1,
@@ -61,9 +62,9 @@
       "page": 6,
       "kind": "image",
       "clashes": [
-        { "id": "p6-banio", "texts": ["BAÑO", "VESTIDOR"], "box": [270, 302, 56, 13], "note": "Rótulo duplicado: hay otro BAÑO correcto más abajo." },
-        { "id": "p6-estar", "texts": ["ESTAR-COMEDOR", "MESADA 2,40"], "box": [183, 557, 76, 14], "note": "Texto mezclado, el segundo no se lee completo." },
-        { "id": "p6-cocina", "texts": ["COCINA", "LAVADERO"], "box": [345, 587, 56, 14], "note": "Rótulo duplicado: hay otro LAVADERO correcto arriba." }
+        { "id": "p6-banio", "texts": ["BAÑO", "VESTIDOR"], "box": [273.3, 304.0, 48.9, 7.8], "note": "Rótulo duplicado: hay otro BAÑO correcto más abajo." },
+        { "id": "p6-estar", "texts": ["ESTAR-COMEDOR", "MESADA 2,40"], "box": [186.0, 561.0, 69.6, 7.2], "note": "Texto mezclado, el segundo no se lee completo." },
+        { "id": "p6-cocina", "texts": ["COCINA", "LAVADERO"], "box": [347.9, 588.6, 51.4, 8.6], "note": "Rótulo duplicado: hay otro LAVADERO correcto arriba." }
       ],
       "not_clashes": [
         { "id": "p6-cama", "texts": ["20.00 m²"], "box": [406, 313, 28, 9], "reason": "Texto sobre las líneas de la cama." },

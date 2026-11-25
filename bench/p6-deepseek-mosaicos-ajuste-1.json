@@ -1,0 +1,177 @@
+{
+  "mode": "mosaicos",
+  "score": {
+    "page": 6,
+    "metric": "iou",
+    "expected": 3,
+    "reported": 3,
+    "truePositives": [
+      "p6-estar",
+      "p6-cocina"
+    ],
+    "falseNegatives": [
+      "p6-banio"
+    ],
+    "falsePositives": [
+      {
+        "id": "p6-ia-2",
+        "page": 6,
+        "severity": "choque",
+        "box": {
+          "x": 278.6893082224909,
+          "y": 296.6755348000001,
+          "w": 18.153482557436515,
+          "h": 12.5533992
+        },
+        "boxNorm": {
+          "x": 0.2340842697252255,
+          "y": 0.35239236156561116,
+          "w": 0.015247964604492872,
+          "h": 0.014910976709778404
+        },
+        "texts": [
+          "BAÑO",
+          "VESTIDOR"
+        ],
+        "zone": "sector central izquierdo",
+        "confidence": 0.92,
+        "source": "vision",
+        "originLabel": "Detectado por IA",
+        "provider": "deepseek:deepseek-flash",
+        "passes": [
+          "mosaicos"
+        ],
+        "refinement": "ajustada"
+      }
+    ],
+    "trapsHit": [],
+    "matches": [
+      {
+        "id": "p6-estar",
+        "iou": 0.7841581945597701,
+        "centerErr": 0.7434646495839112
+      },
+      {
+        "id": "p6-cocina",
+        "iou": 0.5247356338943329,
+        "centerErr": 2.967235892288269
+      }
+    ]
+  },
+  "costUsd": {
+    "peak": 0.0066882,
+    "offPeak": 0.0033441
+  },
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-ia-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 183.4639030229746,
+            "y": 560.0809765000001,
+            "w": 74.08233246674727,
+            "h": 7.6731213
+          },
+          "boxNorm": {
+            "x": 0.15409996900845135,
+            "y": 0.6652663763119593,
+            "w": 0.06222523858423499,
+            "h": 0.009114163516412718
+          },
+          "texts": [
+            "ESTAR",
+            "COMEDOR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.96,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ],
+          "refinement": "ajustada"
+        },
+        {
+          "id": "p6-ia-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 278.6893082224909,
+            "y": 296.6755348000001,
+            "w": 18.153482557436515,
+            "h": 12.5533992
+          },
+          "boxNorm": {
+            "x": 0.2340842697252255,
+            "y": 0.35239236156561116,
+            "w": 0.015247964604492872,
+            "h": 0.014910976709778404
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.92,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ],
+          "refinement": "ajustada"
+        },
+        {
+          "id": "p6-ia-3",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 345.9670839177751,
+            "y": 589.3866374,
+            "w": 56.70623932889963,
+            "h": 12.783736800000005
+          },
+          "boxNorm": {
+            "x": 0.290594040741612,
+            "y": 0.7000757550453753,
+            "w": 0.04763023995011691,
+            "h": 0.015184572612710124
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.92,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ],
+          "refinement": "ajustada"
+        }
+      ],
+      "usage": {
+        "inputTokens": 6914,
+        "outputTokens": 3845,
+        "calls": 7
+      },
+      "tiles": 4,
+      "status": "ok",
+      "notes": [
+        "pasada mosaicos: mosaicos de ~1400px, solape 250px"
+      ],
+      "ms": 14597
+    }
+  ]
+}

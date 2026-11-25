@@ -12,7 +12,7 @@ export class DeepSeekProvider implements VisionProvider {
     private readonly timeoutMs = 50_000,
   ) {}
 
-  async detectOverlaps(image: VisionImage) {
+  async detectOverlaps(image: VisionImage, prompt: string = OVERLAP_PROMPT) {
     const body = {
       model: this.model,
       temperature: 0,
@@ -21,7 +21,7 @@ export class DeepSeekProvider implements VisionProvider {
         {
           role: "user",
           content: [
-            { type: "text", text: OVERLAP_PROMPT },
+            { type: "text", text: prompt },
             { type: "image_url", image_url: { url: `data:${image.mime};base64,${image.data.toString("base64")}` } },
           ],
         },

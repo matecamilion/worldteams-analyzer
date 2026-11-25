@@ -69,3 +69,19 @@ test("si el proveedor falla, la página queda 'no verificada' y no se omite", as
   assert.equal(r.page, 6);
   assert.match(r.error ?? "", /No se pudo analizar/);
 });
+
+test("el ajuste a tinta lleva una caja corrida y alta al renglón real del choque", async () => {
+  const { extractLargestImage } = await import("../lib/detector/pdf");
+  const { snapToInk, toGray } = await import("../lib/detector/ink");
+  const doc = await loadPdf(new Uint8Array(await readFile("samples/planos-prueba.pdf")));
+  const img = (await extractLargestImage(await doc.getPage(6)))!;
+  const S = img.width / img.placement.w;
+  const gray = toGray(img.data, img.width, img.height, img.channels);
+  // Caja típica del modelo para BAÑO × VESTIDOR: 10 pt más abajo y 2,5 veces más alta.
+  const model = { x: 270 * S, y: 300 * S, w: 60 * S, h: 20 * S };
+  const s = snapToInk(gray, model)!;
+  const gt = { x: 273.3, y: 304.0, w: 48.9, h: 7.8 };
+  assert.ok(Math.abs(s.y / S - gt.y) < 1.5, `y ${s.y / S}`);
+  assert.ok(Math.abs(s.x / S - gt.x) < 1.5, `x ${s.x / S}`);
+  assert.ok(Math.abs(s.w / S - gt.w) < 3, `w ${s.w / S}`);
+});

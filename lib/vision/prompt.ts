@@ -17,3 +17,15 @@ Respondé SOLO con JSON, sin texto adicional, con este formato:
 - "texts": lo que alcances a leer de cada texto involucrado.
 - "confidence": de 0 a 1, qué tan seguro estás de que es texto sobre texto.
 Si no hay ninguna, respondé {"overlaps":[]}.`;
+
+/** Segunda mirada sobre un recorte ampliado alrededor de un choque ya detectado. */
+export const REFINE_PROMPT = `Sos un revisor de planos de arquitectura. La imagen es un recorte AMPLIADO de un plano escaneado, centrado aproximadamente en un lugar donde dos textos distintos se imprimieron uno encima del otro (uno puede ser más tenue o gris, casi tapado).
+
+Tarea: marcá con precisión SOLO las letras de los textos que se pisan entre sí.
+- La caja tiene que ajustarse al renglón donde están las letras encimadas, sin incluir los renglones de abajo o de arriba que se leen bien (superficie en m², NPT, cotas) ni líneas del dibujo.
+- Si hay más de un lugar con letras encimadas, informalos por separado.
+- Si en el recorte no hay letras de dos textos pisándose, devolvé una lista vacía.
+
+Respondé SOLO con JSON:
+{"overlaps":[{"box":[x0,y0,x1,y1],"texts":["texto 1","texto 2"],"confidence":0.0}]}
+"box" en coordenadas normalizadas 0 a 1 respecto de ESTA imagen (origen arriba a la izquierda).`;

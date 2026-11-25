@@ -9,7 +9,19 @@ import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
 import { ResultsPanel } from "./ResultsPanel";
 import { UploadZone } from "./UploadZone";
 
-type PageEntry = { page: number; status: PageStatus; result?: PageResult };
+/** `scanned`: la página casi no tiene texto (va a visión, puede tardar hasta un minuto). */
+type PageEntry = { page: number; status: PageStatus; result?: PageResult; scanned?: boolean };
+
+/** Misma regla que el servidor (inspectPage): menos de 20 caracteres de texto = página escaneada. */
+async function looksScanned(doc: PDFDocumentProxy, page: number): Promise<boolean> {
+  try {
+    const content = await (await doc.getPage(page)).getTextContent();
+    const chars = content.items.reduce((n, it) => n + ("str" in it ? it.str.trim().length : 0), 0);
+    return chars < 20;
+  } catch {
+    return false;
+  }
+}
 type Loaded = { name: string; bytes: ArrayBuffer; doc: PDFDocumentProxy; run: number };
 
 /** Reintentos automáticos por página ante fallas de red o del servidor (además del manual). */
@@ -62,8 +74,8 @@ export function DetectorApp() {
   const setPage = (page: number, patch: Partial<PageEntry>) =>
     setPages((prev) => prev.map((p) => (p.page === page ? { ...p, ...patch } : p)));
 
-  const analyze = useCallback(async (bytes: ArrayBuffer, page: number, run: number) => {
-    setPage(page, { status: "analizando" });
+  const analyze = useCallback(async (doc: PDFDocumentProxy, bytes: ArrayBuffer, page: number, run: number) => {
+    setPage(page, { status: "analizando", scanned: await looksScanned(doc, page) });
     let result: PageResult | null = null;
     for (let attempt = 0; attempt <= AUTO_RETRIES && !result; attempt++) {
       try {
@@ -98,7 +110,7 @@ export function DetectorApp() {
         // Página por página: cada request entra holgado en el límite de duración de Vercel.
         for (let n = 1; n <= doc.numPages; n++) {
           if (run !== runId.current) return;
-          await analyze(bytes, n, run);
+          await analyze(doc, bytes, n, run);
         }
         if (run === runId.current) setRunning(false);
       } catch {
@@ -125,7 +137,7 @@ export function DetectorApp() {
   const retry = useCallback(
     async (page: number) => {
       if (!loaded) return;
-      await analyze(loaded.bytes, page, runId.current);
+      await analyze(loaded.doc, loaded.bytes, page, runId.current);
     },
     [analyze, loaded],
   );
@@ -142,7 +154,8 @@ export function DetectorApp() {
   const findings = useMemo(() => numberFindings(results), [results]);
   const summary = useMemo(() => summarize(results), [results]);
   const done = pages.filter((p) => p.status === "ok" || p.status === "no_verificada").length;
-  const current = pages.find((p) => p.status === "analizando")?.page;
+  const currentEntry = pages.find((p) => p.status === "analizando");
+  const current = currentEntry?.page;
   const hasScanned = results.some((r) => r.kind === "image");
 
   const nonce = useRef(0);
@@ -242,7 +255,8 @@ export function DetectorApp() {
             </p>
             <p className="text-sm text-gris" aria-live="polite">
               {running && current
-                ? `Analizando página ${current} de ${pages.length}`
+                ? `Analizando página ${current} de ${pages.length}` +
+                  (currentEntry?.scanned ? " · es escaneada, puede tardar hasta un minuto" : "")
                 : `${pages.length} páginas revisadas`}
             </p>
           </div>
@@ -320,6 +334,7 @@ export function DetectorApp() {
               doc={loaded.doc}
               pageNumber={p.page}
               status={p.status}
+              scanned={p.scanned}
               result={p.result}
               findings={findings.filter((f) => f.page === p.page)}
               selectedId={selectedId}

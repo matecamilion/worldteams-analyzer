@@ -27,6 +27,8 @@ type Props = {
   doc: PDFDocumentProxy;
   pageNumber: number;
   status: PageStatus;
+  /** Página escaneada: el análisis con IA puede tardar hasta un minuto. */
+  scanned?: boolean;
   result?: PageResult;
   findings: NumberedFinding[];
   selectedId: string | null;
@@ -54,6 +56,7 @@ export function PageView({
   doc,
   pageNumber,
   status,
+  scanned,
   result,
   findings,
   selectedId,
@@ -359,7 +362,9 @@ export function PageView({
         {kindLabel && <span className="text-sm text-gris">{kindLabel}</span>}
         <span className="ml-auto text-sm">
           {status === "pendiente" && <span className="text-gris">En espera</span>}
-          {status === "analizando" && <span className="text-tinta">Analizando…</span>}
+          {status === "analizando" && (
+            <span className="text-tinta">{scanned ? "Analizando con IA, puede tardar hasta un minuto…" : "Analizando…"}</span>
+          )}
           {status === "ok" &&
             (clashes ? (
               <span className="font-semibold text-choque">

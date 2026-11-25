@@ -36,7 +36,7 @@ export type ImageOptions = {
   retries: number;
   /**
    * Pasado este tiempo desde el inicio de la página no se empieza ningún intento nuevo. Con el
-   * timeout de 50 s por llamada, la página termina antes de los 120 s de maxDuration de la ruta.
+   * corte de 20 s por llamada, la página termina en ~80 s como máximo (maxDuration de la ruta: 120 s).
    */
   deadlineMs: number;
   jpegQuality: number;

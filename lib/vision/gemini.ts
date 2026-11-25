@@ -1,5 +1,5 @@
 import { OVERLAP_PROMPT } from "./prompt";
-import { parseBoxes, VisionError, type VisionImage, type VisionProvider } from "./provider";
+import { CALL_TIMEOUT_MS, parseBoxes, postJsonWithTimeout, VisionError, type VisionImage, type VisionProvider } from "./provider";
 
 /**
  * Gemini (Google AI Studio) por la API Interactions.
@@ -14,7 +14,7 @@ export class GeminiProvider implements VisionProvider {
     private readonly apiKey: string,
     readonly model = "gemini-3.5-flash-lite",
     private readonly baseUrl = "https://generativelanguage.googleapis.com/v1beta",
-    private readonly timeoutMs = 50_000,
+    private readonly timeoutMs = CALL_TIMEOUT_MS,
   ) {}
 
   async detectOverlaps(image: VisionImage, prompt: string = OVERLAP_PROMPT) {
@@ -27,22 +27,13 @@ export class GeminiProvider implements VisionProvider {
       ],
       response_format: { type: "text", mime_type: "application/json", schema: SCHEMA },
     };
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/interactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": this.apiKey },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-    } catch (e) {
-      throw new VisionError(`Gemini no respondió: ${(e as Error).message}`, true);
-    }
-    if (!res.ok) {
-      const detail = (await res.text()).slice(0, 300);
-      throw new VisionError(`Gemini respondió ${res.status}: ${detail}`, res.status === 429 || res.status >= 500);
-    }
-    const json = (await res.json()) as Record<string, unknown>;
+    const json = await postJsonWithTimeout(
+      `${this.baseUrl}/interactions`,
+      { "x-goog-api-key": this.apiKey },
+      body,
+      "Gemini",
+      this.timeoutMs,
+    );
     const raw = extractText(json);
     return { boxes: parseBoxes(toOurFormat(raw)), usage: extractUsage(json), raw };
   }

@@ -74,3 +74,40 @@ export function parseBoxes(raw: string): VisionBox[] {
   }
   return out;
 }
+
+/** Tiempo máximo por llamada al modelo de visión. */
+export const CALL_TIMEOUT_MS = 20_000;
+
+/**
+ * POST JSON con corte por AbortController: el plazo cubre la conexión y la lectura completa
+ * de la respuesta. Un corte es reintentable (otra llamada suele responder a tiempo).
+ */
+export async function postJsonWithTimeout(
+  url: string,
+  headers: Record<string, string>,
+  body: unknown,
+  label: string,
+  timeoutMs = CALL_TIMEOUT_MS,
+): Promise<Record<string, unknown>> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const detail = (await res.text()).slice(0, 300);
+      throw new VisionError(`${label} respondió ${res.status}: ${detail}`, res.status === 429 || res.status >= 500);
+    }
+    return (await res.json()) as Record<string, unknown>;
+  } catch (e) {
+    if (e instanceof VisionError) throw e;
+    const msg = controller.signal.aborted ? `sin respuesta en ${timeoutMs / 1000} s` : (e as Error).message;
+    throw new VisionError(`${label} no respondió: ${msg}`, true);
+  } finally {
+    clearTimeout(timer);
+  }
+}

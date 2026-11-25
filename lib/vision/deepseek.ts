@@ -1,5 +1,5 @@
 import { OVERLAP_PROMPT } from "./prompt";
-import { parseBoxes, VisionError, type VisionImage, type VisionProvider } from "./provider";
+import { CALL_TIMEOUT_MS, parseBoxes, postJsonWithTimeout, type VisionImage, type VisionProvider } from "./provider";
 
 /** DeepSeek vía su API compatible con OpenAI (chat completions con image_url). */
 export class DeepSeekProvider implements VisionProvider {
@@ -9,7 +9,7 @@ export class DeepSeekProvider implements VisionProvider {
     private readonly apiKey: string,
     readonly model = "deepseek-flash",
     private readonly baseUrl = "https://api.deepseek.com",
-    private readonly timeoutMs = 50_000,
+    private readonly timeoutMs = CALL_TIMEOUT_MS,
   ) {}
 
   async detectOverlaps(image: VisionImage, prompt: string = OVERLAP_PROMPT) {
@@ -27,22 +27,13 @@ export class DeepSeekProvider implements VisionProvider {
         },
       ],
     };
-    let res: Response;
-    try {
-      res = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${this.apiKey}` },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
-    } catch (e) {
-      throw new VisionError(`DeepSeek no respondió: ${(e as Error).message}`, true);
-    }
-    if (!res.ok) {
-      const detail = (await res.text()).slice(0, 300);
-      throw new VisionError(`DeepSeek respondió ${res.status}: ${detail}`, res.status === 429 || res.status >= 500);
-    }
-    const json = (await res.json()) as {
+    const json = (await postJsonWithTimeout(
+      `${this.baseUrl}/chat/completions`,
+      { Authorization: `Bearer ${this.apiKey}` },
+      body,
+      "DeepSeek",
+      this.timeoutMs,
+    )) as {
       choices?: { message?: { content?: string } }[];
       usage?: { prompt_tokens?: number; completion_tokens?: number };
     };

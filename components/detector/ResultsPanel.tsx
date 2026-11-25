@@ -37,6 +37,11 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
         </label>
       </div>
 
+      <p className="border-b border-linea px-4 py-1.5 text-xs text-gris">
+        <kbd className="rounded border border-linea-fuerte bg-papel px-1">←</kbd>{" "}
+        <kbd className="rounded border border-linea-fuerte bg-papel px-1">→</kbd> recorren los hallazgos ·{" "}
+        <kbd className="rounded border border-linea-fuerte bg-papel px-1">Esc</kbd> vuelve a la página completa
+      </p>
       <ol className="flex-1 overflow-y-auto" aria-label="Hallazgos por página">
         {pages.map((p) => {
           const own = findings.filter((f) => f.page === p.page && (showNear || f.severity !== "cercania"));
@@ -83,6 +88,7 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                     return (
                       <li key={f.id}>
                         <button
+                          id={`item-${f.id}`}
                           type="button"
                           onClick={() => onSelect(f.id)}
                           aria-current={selected ? "true" : undefined}

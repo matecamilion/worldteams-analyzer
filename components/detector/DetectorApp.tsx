@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
 import { numberFindings, summarize, toCsv } from "@/lib/detector/report";
 import type { PageResult } from "@/lib/detector/types";
-import { PageView, type PageStatus } from "./PageView";
+import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
 import { ResultsPanel } from "./ResultsPanel";
 import { UploadZone } from "./UploadZone";
 
@@ -54,6 +54,9 @@ export function DetectorApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNear, setShowNear] = useState(true);
   const [crops, setCrops] = useState<Record<string, string>>({});
+  const [zoom, setZoom] = useState<ZoomCommand | null>(null);
+  /** Página que tiene zoom (por un hallazgo o por un gesto), para que Esc sepa a quién volver. */
+  const zoomedPage = useRef<number | null>(null);
   const runId = useRef(0);
 
   const setPage = (page: number, patch: Partial<PageEntry>) =>
@@ -88,6 +91,8 @@ export function DetectorApp() {
         setPages(Array.from({ length: doc.numPages }, (_, i) => ({ page: i + 1, status: "pendiente" as const })));
         setCrops({});
         setSelectedId(null);
+        setZoom(null);
+        zoomedPage.current = null;
         setOpening(false);
         setRunning(true);
         // Página por página: cada request entra holgado en el límite de duración de Vercel.
@@ -140,21 +145,65 @@ export function DetectorApp() {
   const current = pages.find((p) => p.status === "analizando")?.page;
   const hasScanned = results.some((r) => r.kind === "image");
 
+  const nonce = useRef(0);
   const select = useCallback(
     (id: string) => {
       const f = findings.find((x) => x.id === id);
       if (!f) return;
       if (f.severity === "cercania") setShowNear(true);
       setSelectedId(id);
+      setZoom({ page: f.page, box: f.box, nonce: ++nonce.current });
+      zoomedPage.current = f.page;
       requestAnimationFrame(() => {
-        const box = document.getElementById(`caja-${id}`);
         const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        box?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center", inline: "center" });
-        box?.focus({ preventScroll: true });
+        const behavior = reduce ? "auto" : "smooth";
+        // El marco de la página queda centrado en pantalla; el zoom ocurre dentro del marco.
+        const frame = document.getElementById(`marco-${f.page}`);
+        if (frame) {
+          const r = frame.getBoundingClientRect();
+          const visible = r.top >= 90 && r.bottom <= window.innerHeight;
+          if (!visible) frame.scrollIntoView({ behavior, block: "center" });
+        }
+        document.getElementById(`caja-${id}`)?.focus({ preventScroll: true });
+        document.getElementById(`item-${id}`)?.scrollIntoView({ behavior, block: "nearest" });
       });
     },
     [findings],
   );
+
+  const showFullPage = useCallback(() => {
+    if (zoomedPage.current === null) return;
+    setZoom({ page: zoomedPage.current, box: null, nonce: ++nonce.current });
+    zoomedPage.current = null;
+  }, []);
+
+  const onZoomChange = useCallback((page: number, zoomed: boolean) => {
+    zoomedPage.current = zoomed ? page : zoomedPage.current === page ? null : zoomedPage.current;
+  }, []);
+
+  // Teclado: ← → recorren los hallazgos visibles; Esc vuelve a la página completa.
+  const navigable = useMemo(() => findings.filter((f) => showNear || f.severity !== "cercania"), [findings, showNear]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (e.altKey || e.ctrlKey || e.metaKey || el.closest("input, textarea, select, [contenteditable]")) return;
+      if (e.key === "Escape") {
+        showFullPage();
+        return;
+      }
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      if (!navigable.length) return;
+      e.preventDefault();
+      const i = navigable.findIndex((f) => f.id === selectedId);
+      const next =
+        i === -1
+          ? e.key === "ArrowRight" ? 0 : navigable.length - 1
+          : (i + (e.key === "ArrowRight" ? 1 : -1) + navigable.length) % navigable.length;
+      select(navigable[next].id);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigable, selectedId, select, showFullPage]);
 
   const exportCsv = () => {
     if (!loaded) return;
@@ -275,9 +324,11 @@ export function DetectorApp() {
               findings={findings.filter((f) => f.page === p.page)}
               selectedId={selectedId}
               showNear={showNear}
+              zoom={zoom}
               onSelect={select}
               onCrops={onCrops}
               onRetry={() => retry(p.page)}
+              onZoomChange={onZoomChange}
             />
           ))}
         </div>

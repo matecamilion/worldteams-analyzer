@@ -2,6 +2,8 @@ export const OVERLAP_PROMPT = `Sos un revisor de planos de arquitectura. La imag
 
 Tarea: encontrar TEXTOS SUPERPUESTOS, es decir, lugares donde las letras de DOS textos distintos se dibujan una encima de la otra y se vuelven difíciles de leer (por ejemplo "BAÑO" impreso encima de "VESTIDOR").
 
+Atención: muchas veces uno de los dos textos es más tenue, gris o más chico y queda DETRÁS del otro, casi tapado. Revisá con cuidado cada rótulo: si ves trazos de letras que no pertenecen a la palabra principal (letras dobles, manchas con forma de letra, palabras que "se ven sucias"), es una superposición aunque el segundo texto no se lea completo. En ese caso escribí lo que alcances a leer.
+
 NO cuentan como superposición (no los informes):
 - Un texto cruzado por una línea del dibujo: paredes, ejes, líneas de cota, rectángulos de muebles o camas.
 - Un texto que toca el arco de una puerta u otro símbolo gráfico.

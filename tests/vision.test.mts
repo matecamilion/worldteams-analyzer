@@ -24,11 +24,28 @@ test("una caja pegada al corte interno se descarta, una pegada al borde de la p�
 
 test("se unen choques repetidos entre mosaicos, pero no dos choques distintos con el mismo texto", () => {
   const merged = mergeCandidates([
-    { box: { x: 270, y: 300, w: 56, h: 13 }, texts: ["BAÑO", "VESTIDOR"], confidence: 0.9, tiles: [0] },
-    { box: { x: 272, y: 301, w: 55, h: 12 }, texts: ["BAÑO", "VESTIDOR"], confidence: 0.8, tiles: [1] },
-    { box: { x: 270, y: 450, w: 56, h: 13 }, texts: ["BAÑO", "VESTIDOR"], confidence: 0.9, tiles: [2] },
+    { box: { x: 270, y: 300, w: 56, h: 13 }, texts: ["BAÑO", "VESTIDOR"], confidence: 0.9, tiles: ["m#0"], passes: ["mosaicos"] },
+    { box: { x: 272, y: 301, w: 55, h: 12 }, texts: ["BAÑO", "VESTIDOR"], confidence: 0.8, tiles: ["m#1"], passes: ["mosaicos"] },
+    { box: { x: 270, y: 450, w: 56, h: 13 }, texts: ["BAÑO", "VESTIDOR"], confidence: 0.9, tiles: ["m#2"], passes: ["mosaicos"] },
   ]);
   assert.equal(merged.length, 2);
+});
+
+test("la página entera y los mosaicos se unen con tolerancia de 25 pt y se registran ambas pasadas", () => {
+  const merged = mergeCandidates(
+    [
+      { box: { x: 270, y: 300, w: 56, h: 13 }, texts: ["BAÑO", "VESTIDOR"], confidence: 0.9, tiles: ["m#0"], passes: ["mosaicos"] },
+      // Caja corrida 18 pt hacia abajo y sin pisarse: igual es el mismo choque.
+      { box: { x: 268, y: 318, w: 60, h: 14 }, texts: ["BAÑO"], confidence: 0.6, tiles: ["p#0"], passes: ["pagina"] },
+      // A 60 pt: es otro choque.
+      { box: { x: 270, y: 360, w: 56, h: 13 }, texts: ["X", "Y"], confidence: 0.6, tiles: ["p#0"], passes: ["pagina"] },
+    ],
+    25,
+  );
+  assert.equal(merged.length, 2);
+  assert.deepEqual(merged[0].passes.sort(), ["mosaicos", "pagina"]);
+  // Se conserva la caja de la pasada más confiable, sin estirarla con la otra.
+  assert.equal(merged[0].box.y, 300);
 });
 
 test("la respuesta del modelo se interpreta con tolerancia (0–1000, cajas invertidas, basura)", () => {
@@ -47,6 +64,7 @@ test("si el proveedor falla, la página queda 'no verificada' y no se omite", as
     },
   };
   const r = await analyzeImagePage(6, await doc.getPage(6), failing, { retries: 0 });
+  assert.equal(r.tiles, 4);
   assert.equal(r.status, "no_verificada");
   assert.equal(r.page, 6);
   assert.match(r.error ?? "", /No se pudo analizar/);

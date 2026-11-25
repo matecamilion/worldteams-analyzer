@@ -1,5 +1,5 @@
 import { clipConvex, iou, polygonArea, rectGap, unionRect, boundsOf, type Rect } from "./geometry";
-import type { DetectorOptions, Finding, Severity, TextBox } from "./types";
+import { ORIGIN_LABEL, type DetectorOptions, type Finding, type Severity, type TextBox } from "./types";
 import { describeZone, findGridAxes, type GridAxes } from "./zones";
 
 type Pair = { a: TextBox; b: TextBox; severity: Severity; ratio: number; inter: Rect | null };
@@ -106,6 +106,7 @@ export function detectVectorOverlaps(
         confidence: Number(confidenceFor(severity, ratio).toFixed(2)),
         overlapRatio: Number(ratio.toFixed(3)),
         source: "vector",
+        originLabel: ORIGIN_LABEL.vector,
       });
     }
   }

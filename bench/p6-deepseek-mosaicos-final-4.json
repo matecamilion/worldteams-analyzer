@@ -1,0 +1,129 @@
+{
+  "mode": "mosaicos",
+  "score": {
+    "page": 6,
+    "expected": 3,
+    "reported": 3,
+    "truePositives": [
+      "p6-cocina",
+      "p6-banio",
+      "p6-estar"
+    ],
+    "falseNegatives": [],
+    "falsePositives": [],
+    "trapsHit": []
+  },
+  "costUsd": {
+    "peak": 0.0123024,
+    "offPeak": 0.0061512
+  },
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-ia-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 342.17227186215234,
+            "y": 584.5447491000001,
+            "w": 62.92823390568317,
+            "h": 16.82904089999999
+          },
+          "boxNorm": {
+            "x": 0.28740659944918984,
+            "y": 0.694324541169165,
+            "w": 0.05285638610559812,
+            "h": 0.01998960065794833
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ]
+        },
+        {
+          "id": "p6-ia-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 268.7559989721886,
+            "y": 288.59452400000004,
+            "w": 65.55024365175335,
+            "h": 24.041487000000018
+          },
+          "boxNorm": {
+            "x": 0.22574081565932533,
+            "y": 0.3427937053044235,
+            "w": 0.055058735526664744,
+            "h": 0.028556572368497655
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.9,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ]
+        },
+        {
+          "id": "p6-ia-3",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 182.88517978839178,
+            "y": 558.0991134000001,
+            "w": 96.35885816807736,
+            "h": 14.424892200000011
+          },
+          "boxNorm": {
+            "x": 0.1536138721193946,
+            "y": 0.6629123115638176,
+            "w": 0.08093634122419713,
+            "h": 0.017133943421098592
+          },
+          "texts": [
+            "ESTAR-COMEDOR",
+            "ESTAR"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.85,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ]
+        }
+      ],
+      "usage": {
+        "inputTokens": 5360,
+        "outputTokens": 8912,
+        "calls": 4
+      },
+      "tiles": 4,
+      "status": "ok",
+      "notes": [
+        "pasada mosaicos: mosaicos de ~1400px, solape 250px"
+      ],
+      "ms": 34641
+    }
+  ]
+}

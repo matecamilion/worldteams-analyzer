@@ -49,8 +49,14 @@ export type Finding = {
   /** Máximo solape relativo entre los textos de la zona (0–1); sólo páginas vectoriales. */
   overlapRatio?: number;
   source: "vector" | "vision";
+  /** Etiqueta para mostrar y exportar: "Texto del PDF" o "Detectado por IA". */
+  originLabel: string;
   provider?: string;
+  /** Pasadas de visión que vieron este choque ("mosaicos", "pagina"). */
+  passes?: string[];
 };
+
+export const ORIGIN_LABEL = { vector: "Texto del PDF", vision: "Detectado por IA" } as const;
 
 export type PageKind = "vector" | "image" | "empty";
 

@@ -1,0 +1,101 @@
+{
+  "mode": "mosaicos",
+  "score": {
+    "page": 6,
+    "expected": 3,
+    "reported": 2,
+    "truePositives": [
+      "p6-banio",
+      "p6-cocina"
+    ],
+    "falseNegatives": [
+      "p6-estar"
+    ],
+    "falsePositives": [],
+    "trapsHit": []
+  },
+  "costUsd": {
+    "peak": 0.008592,
+    "offPeak": 0.004296
+  },
+  "pages": [
+    {
+      "page": 6,
+      "kind": "image",
+      "width": 1190.5512,
+      "height": 841.8898,
+      "textCount": 0,
+      "findings": [
+        {
+          "id": "p6-ia-1",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 272.03351115477625,
+            "y": 305.4235649000001,
+            "w": 49.162682738815,
+            "h": 19.233189600000014
+          },
+          "boxNorm": {
+            "x": 0.22849375243565856,
+            "y": 0.3627833059623719,
+            "w": 0.041294051644998546,
+            "h": 0.022845257894798122
+          },
+          "texts": [
+            "BAÑO",
+            "VESTIDOR"
+          ],
+          "zone": "sector central izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ]
+        },
+        {
+          "id": "p6-ia-2",
+          "page": 6,
+          "severity": "choque",
+          "box": {
+            "x": 340.86126698911727,
+            "y": 591.7571952000001,
+            "w": 65.5502436517533,
+            "h": 19.233189600000014
+          },
+          "boxNorm": {
+            "x": 0.28630542473865656,
+            "y": 0.7028915128797142,
+            "w": 0.05505873552666471,
+            "h": 0.022845257894798122
+          },
+          "texts": [
+            "COCINA",
+            "LAVADERO"
+          ],
+          "zone": "sector inferior izquierdo",
+          "confidence": 0.95,
+          "source": "vision",
+          "originLabel": "Detectado por IA",
+          "provider": "deepseek:deepseek-flash",
+          "passes": [
+            "mosaicos"
+          ]
+        }
+      ],
+      "usage": {
+        "inputTokens": 5360,
+        "outputTokens": 5820,
+        "calls": 4
+      },
+      "tiles": 4,
+      "status": "ok",
+      "notes": [
+        "pasada mosaicos: mosaicos de ~1400px, solape 250px"
+      ],
+      "ms": 27082
+    }
+  ]
+}

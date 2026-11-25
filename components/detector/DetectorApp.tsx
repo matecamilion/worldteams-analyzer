@@ -49,6 +49,13 @@ async function requestPage(bytes: ArrayBuffer, page: number): Promise<PageResult
   }
   const body = (await res.json().catch(() => null)) as { result?: PageResult; error?: string } | null;
   if (res.ok && body?.result) return body.result;
+  if (res.status === 401) {
+    // La sesión venció durante el análisis: volver a entrar.
+    // Recarga completa a propósito: descarta el estado de la sesión vencida.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.assign(`${window.location.origin}/login`);
+    throw new RequestError("Tu sesión venció. Volvé a entrar.", false);
+  }
   if (res.status === 504) throw new RequestError("El análisis tardó demasiado y se cortó.", true);
   throw new RequestError(body?.error ?? `El servidor respondió ${res.status}.`, res.status >= 500 || res.status === 429);
 }

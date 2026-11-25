@@ -20,7 +20,13 @@ export async function POST(request: Request) {
   // El bloqueo se valida acá, en el servidor: ocultar el botón no alcanza.
   const access = await requireToolAccess();
   if (!access.ok) {
-    return Response.json({ error: "Terminá el video de inducción para usar la herramienta." }, { status: 403 });
+    const [status, error] =
+      access.reason === "sin_sesion"
+        ? [401, "Iniciá sesión para usar la herramienta."]
+        : access.reason === "no_habilitado"
+          ? [403, "Tu cuenta no está habilitada para usar esta herramienta."]
+          : [403, "Terminá el video de inducción para usar la herramienta."];
+    return Response.json({ error }, { status });
   }
   const url = new URL(request.url);
   const pageNumber = Number(url.searchParams.get("page"));

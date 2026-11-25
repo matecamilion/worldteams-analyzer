@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-// Hasta que exista el login, la entrada lleva directo al detector.
+// La entrada lleva al detector; el guard redirige a /login o /video si hace falta.
 export default function Home() {
   redirect("/detector");
 }

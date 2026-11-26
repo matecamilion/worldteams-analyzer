@@ -3,17 +3,28 @@ import { detectVectorOverlaps } from "./overlap";
 import { DEFAULT_OPTIONS, type DetectorOptions, type PageKind, type PageResult } from "./types";
 import { extractOpRuns, splitCombinedItems } from "./runs";
 import { buildTextBoxes, type RawTextItem } from "./vector";
+import { multiply, type Matrix } from "./pdf";
 
 export type PageInfo = { kind: PageKind; width: number; height: number; items: RawTextItem[] };
 
 /** Mínimo de caracteres extraíbles para tratar la página como vectorial. */
 const MIN_TEXT_CHARS = 20;
 
+/**
+ * Lleva una matriz de pdfjs (espacio PDF) a la hoja tal como se ve: rotada según /Rotate y con
+ * origen en la esquina inferior izquierda de la caja visible (CropBox ∩ MediaBox). Es la matriz
+ * de pantalla de pdfjs a escala 1 (origen arriba) seguida de un volteo vertical, así el resto del
+ * detector sigue trabajando "en PDF" y las cajas salen en las coordenadas de la pantalla.
+ */
+export function visibleTransform(page: Pick<PDFPageProxy, "getViewport">): { matrix: Matrix; width: number; height: number } {
+  const vp = page.getViewport({ scale: 1 });
+  return { matrix: multiply([1, 0, 0, -1, 0, vp.height], vp.transform as Matrix), width: vp.width, height: vp.height };
+}
+
 export async function inspectPage(page: PDFPageProxy): Promise<PageInfo> {
-  // view = [x0, y0, x1, y1]; ignoramos rotación de página (no se usa en planos de prueba, ver README).
-  const [x0, y0, x1, y1] = page.view;
-  const width = x1 - x0;
-  const height = y1 - y0;
+  // Tamaño y coordenadas de lo que se ve: con /Rotate 90 el ancho es el alto del PDF.
+  const { matrix, width, height } = visibleTransform(page);
+  const toVisible = (items: RawTextItem[]) => items.map((i) => ({ ...i, transform: multiply(matrix, i.transform as Matrix) }));
   const content = await page.getTextContent();
   const items = (content.items as RawTextItem[]).filter((i) => typeof i.str === "string" && i.str.trim());
   const chars = items.reduce((n, i) => n + i.str.trim().length, 0);
@@ -25,7 +36,8 @@ export async function inspectPage(page: PDFPageProxy): Promise<PageInfo> {
     } catch {
       // Si la lista de operaciones no se puede leer, se sigue con lo que entregó pdfjs.
     }
-    return { kind: "vector", width, height, items: split };
+    // La separación compara con las operaciones del PDF, así que se hace antes de girar.
+    return { kind: "vector", width, height, items: toVisible(split) };
   }
 
   const ops = await page.getOperatorList();

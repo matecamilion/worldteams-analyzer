@@ -3,7 +3,7 @@ import type { PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { rectIntersection, unionRect, type Rect } from "./geometry";
 import { extractLargestImage } from "./pdf";
 import { planTiles, touchesInnerEdge, type Tile } from "./tiles";
-import { ORIGIN_LABEL, type Finding, type PageResult } from "./types";
+import { LOW_RES_WARNING, ORIGIN_LABEL, type Finding, type PageResult } from "./types";
 import { sectorName } from "./zones";
 import { VisionError, type VisionBox, type VisionProvider, type VisionUsage } from "../vision/provider";
 import { REFINE_PROMPT } from "../vision/prompt";
@@ -58,6 +58,17 @@ export type ImageOptions = {
    * (el de más tinta que toca la caja). Medido offline sobre 18 corridas: IoU medio 0,40 → 0,92.
    */
   inkSnap: boolean;
+  /**
+   * Páginas de baja resolución: por debajo de `lowResPpi` (px de imagen por pulgada de hoja) se
+   * amplía la imagen hacia `targetPpi` antes de partirla en mosaicos, así la IA ve letras de alto
+   * parecido al de las muestras que funcionan y el ajuste a tinta (calibrado en px) no abarca de
+   * más. Topes de costo: ampliación de hasta ×`maxUpscale` y no más de `maxTiles` mosaicos por
+   * página entre todas las pasadas (si una página ya tenía más sin ampliar, no se amplía).
+   */
+  lowResPpi: number;
+  targetPpi: number;
+  maxUpscale: number;
+  maxTiles: number;
 };
 
 // La pasada de página entera está disponible pero apagada por defecto: en 5 corridas medidas
@@ -80,7 +91,34 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   inkSnap: true,
   // Medido en 3 corridas × 3 páginas escaneadas: misma calidad (69/69), 1 llamada menos por página.
   skipBlankTiles: true,
+  // Medido (scripts/diag-resolucion.mts): el plano real a 102 ppi (rótulos de ~9 px, cotas de ~6 px)
+  // falla; el mismo a 204 ppi (rótulos de ~18 px) anda. Las muestras que andan van de 150 a 204 ppi.
+  lowResPpi: 140,
+  targetPpi: 200,
+  maxUpscale: 2.5,
+  maxTiles: 16,
 };
+
+/** Mosaicos que planifican todas las pasadas para una imagen de ese tamaño. */
+const countJobs = (passes: VisionPass[], width: number, height: number) =>
+  passes.reduce((n, p) => n + planTiles(width, height, p.tileSize, p.overlap, p.extraPerAxis).length, 0);
+
+/**
+ * Factor de ampliación para una imagen de `ppi` px por pulgada de hoja: 1 si la resolución
+ * alcanza; si no, hacia `targetPpi`, con tope de factor y de mosaicos por página.
+ */
+export function upscaleFactor(
+  ppi: number,
+  width: number,
+  height: number,
+  opts: Pick<ImageOptions, "passes" | "lowResPpi" | "targetPpi" | "maxUpscale" | "maxTiles">,
+): number {
+  if (!(ppi > 0) || ppi >= opts.lowResPpi) return 1;
+  const cap = Math.max(opts.maxTiles, countJobs(opts.passes, width, height));
+  let f = Math.min(opts.maxUpscale, opts.targetPpi / ppi);
+  while (f > 1 && countJobs(opts.passes, Math.round(width * f), Math.round(height * f)) > cap) f -= 0.05;
+  return Math.max(1, Number(f.toFixed(2)));
+}
 
 export type Candidate = {
   box: Rect;
@@ -232,10 +270,26 @@ export async function analyzeImagePage(
   const stats = (name: string) =>
     (base.byPass[name] ??= { tiles: 0, skipped: 0, apiCalls: 0, failed: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningTokens: 0 });
 
-  const img = await extractLargestImage(page);
-  if (!img) {
+  const extracted = await extractLargestImage(page);
+  if (!extracted) {
     return { ...base, status: "no_verificada", error: "No se pudo extraer la imagen de la página.", ms: Date.now() - started };
   }
+  // Resolución efectiva: px de imagen por pulgada de hoja, en el eje más pobre.
+  const ppi = Math.min(extracted.width / extracted.placement.w, extracted.height / extracted.placement.h) * 72;
+  const factor = upscaleFactor(ppi, extracted.width, extracted.height, opts);
+  let img = extracted;
+  if (factor > 1) {
+    const width = Math.round(extracted.width * factor);
+    const height = Math.round(extracted.height * factor);
+    const { data, info } = await sharp(Buffer.from(extracted.data), {
+      raw: { width: extracted.width, height: extracted.height, channels: extracted.channels },
+    })
+      .resize(width, height, { kernel: "lanczos3" })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    img = { ...extracted, data: new Uint8Array(data.buffer, data.byteOffset, data.length), width, height, channels: info.channels as typeof extracted.channels };
+  }
+  const lowResolution = ppi < opts.lowResPpi ? { ppi: Math.round(ppi), upscale: factor } : undefined;
 
   const source = sharp(Buffer.from(img.data), {
     raw: { width: img.width, height: img.height, channels: img.channels },
@@ -431,7 +485,9 @@ export async function analyzeImagePage(
         ? `No se pudo analizar la página: ${errors[0]}`
         : `Fallaron ${failed} de ${toSend.length} llamadas; el resultado es parcial.`
       : undefined,
+    lowResolution,
     notes: [
+      ...(lowResolution ? [`${LOW_RES_WARNING} (${lowResolution.ppi} ppi; imagen ampliada ×${factor} antes de los mosaicos)`] : []),
       ...opts.passes.map((p) => `pasada ${p.name}: mosaicos de ~${Math.min(p.tileSize, Math.max(img.width, img.height))}px, solape ${p.overlap}px`),
       ...errors.map((e) => `falló ${e}`),
     ],

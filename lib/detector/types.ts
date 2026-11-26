@@ -78,4 +78,11 @@ export type PageResult = {
   error?: string;
   ms: number;
   notes?: string[];
+  /**
+   * Página escaneada con poca resolución (px de imagen por pulgada de hoja). Se analiza igual
+   * (ampliada ×`upscale`), pero la IA lee peor: se avisa en la interfaz y en el resumen.
+   */
+  lowResolution?: { ppi: number; upscale: number };
 };
+
+export const LOW_RES_WARNING = "Imagen de baja resolución: los resultados pueden ser poco confiables.";

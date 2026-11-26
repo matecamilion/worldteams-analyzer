@@ -314,6 +314,12 @@ configuración, sobre las 3 páginas escaneadas de las muestras. Costo con tarif
   - márgenes de búsqueda.
 
   El detector vectorial también se afinó con este archivo, aunque lo cubren pruebas sintéticas.
+- **Baja resolución:** por debajo de 140 ppi (px de imagen por pulgada de hoja) la imagen se
+  amplía hacia 200 ppi antes de partirla en mosaicos (tope ×2,5 y 16 mosaicos por página), y la
+  interfaz y la hoja de resumen avisan "imagen de baja resolución". Con un plano real de 102 ppi
+  (samples/7–9, opcionales: `REALES=1`) pasó de 1/5 con una marca de más a 4/5 sin marcas de
+  más, pero ampliar no agrega detalle: las cotas chicas se leen mal (salen
+  con otros números) y la cota vertical que pisa a otro texto no se detecta.
 - **Marcas de más ocasionales:** el modelo a veces inventa un choque sobre un rótulo limpio (visto
   2 veces en 18 corridas sobre ESCALERA). Medir la densidad de tinta no sirve para filtrarlo
   (0,33 contra 0,35–0,38 en choques reales).

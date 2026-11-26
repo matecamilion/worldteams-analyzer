@@ -1,7 +1,7 @@
 // Corre el detector completo (vectorial + visión) sobre todos los PDFs de samples/ y guarda
 // resultados, uso y tiempos por página. Puntúa contra samples/expected.json y samples/esperados.json.
 //   npx tsx scripts/run-samples.mts [etiqueta] [--solo-vector]
-// SOLO=7,8,9 corre solo los PDFs cuyo nombre empieza así. CRUDAS=1 guarda la respuesta cruda de la
+// REALES=1 suma los planos reales de baja resolución. SOLO=7,8,9 corre solo los PDFs cuyo nombre empieza así. CRUDAS=1 guarda la respuesta cruda de la
 // IA y el JPEG de cada llamada en bench/crudas-<etiqueta>/ (diagnóstico; no cambia el resultado).
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -56,7 +56,10 @@ export const FILES = [
   "4-vectorial-rotado.pdf",
   "5-cad-rotado.pdf",
   "6-escaneado-rotado.pdf",
-  // Plano real de baja resolución (~102 ppi) y el mismo ampliado al doble.
+];
+// Plano real de baja resolución (~102 ppi) y el mismo ampliado al doble. Fuera de la corrida por
+// defecto (cuesta ~USD 0,04 más): entran con SOLO=7,8,9 o REALES=1.
+export const REAL_FILES = [
   "7-plano-real-limpio-control.pdf",
   "8-plano-real-con-errores.pdf",
   "9-plano-real-con-errores-x2-resolucion.pdf",
@@ -65,7 +68,7 @@ export const FILES = [
 type Out = { file: string; pages: (PageResult & Partial<ImagePageResult> & { costUsd?: { peak: number; offPeak: number } | null })[] };
 const out: Out[] = [];
 
-for (const file of FILES) {
+for (const file of [...FILES, ...(only || process.env.REALES ? REAL_FILES : [])]) {
   if (!existsSync(`samples/${file}`)) continue;
   if (only && !only.some((p) => file.startsWith(p))) continue;
   const doc = await loadPdf(new Uint8Array(await readFile(`samples/${file}`)));

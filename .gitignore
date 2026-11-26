@@ -53,3 +53,6 @@ next-env.d.ts
 /samples/9-plano-real-con-errores-x2-resolucion.pdf
 /samples/esperados-planos-reales.json
 /bench/crudas-*/
+# Corridas con el plano real: traen los textos que leyó la IA, no se suben.
+/bench/samples-reales-*.json
+/bench/samples-prompt-*.json

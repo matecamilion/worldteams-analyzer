@@ -1,5 +1,5 @@
 import { OVERLAP_PROMPT } from "./prompt";
-import { CALL_TIMEOUT_MS, parseBoxes, postJsonWithTimeout, VisionError, type VisionImage, type VisionProvider } from "./provider";
+import { CALL_TIMEOUT_MS, parseBoxes, postJsonWithTimeout, VisionError, type CallOptions, type VisionImage, type VisionProvider } from "./provider";
 
 export type DeepSeekOptions = {
   /** Razonamiento interno: "none" lo apaga; por defecto la API usa "high". */
@@ -20,7 +20,7 @@ export class DeepSeekProvider implements VisionProvider {
     private readonly options: DeepSeekOptions = {},
   ) {}
 
-  async detectOverlaps(image: VisionImage, prompt: string = OVERLAP_PROMPT) {
+  async detectOverlaps(image: VisionImage, prompt: string = OVERLAP_PROMPT, call: CallOptions = {}) {
     const body = {
       model: this.model,
       temperature: 0,
@@ -46,7 +46,7 @@ export class DeepSeekProvider implements VisionProvider {
       { Authorization: `Bearer ${this.apiKey}` },
       body,
       "DeepSeek",
-      this.timeoutMs,
+      call.timeoutMs ?? this.timeoutMs,
     )) as {
       choices?: { message?: { content?: string }; finish_reason?: string }[];
       usage?: {

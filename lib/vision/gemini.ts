@@ -1,5 +1,5 @@
 import { OVERLAP_PROMPT } from "./prompt";
-import { CALL_TIMEOUT_MS, parseBoxes, postJsonWithTimeout, VisionError, type VisionImage, type VisionProvider } from "./provider";
+import { CALL_TIMEOUT_MS, parseBoxes, postJsonWithTimeout, VisionError, type CallOptions, type VisionImage, type VisionProvider } from "./provider";
 
 /**
  * Gemini (Google AI Studio) por la API Interactions.
@@ -17,7 +17,7 @@ export class GeminiProvider implements VisionProvider {
     private readonly timeoutMs = CALL_TIMEOUT_MS,
   ) {}
 
-  async detectOverlaps(image: VisionImage, prompt: string = OVERLAP_PROMPT) {
+  async detectOverlaps(image: VisionImage, prompt: string = OVERLAP_PROMPT, call: CallOptions = {}) {
     const body = {
       model: this.model,
       input: [
@@ -32,7 +32,7 @@ export class GeminiProvider implements VisionProvider {
       { "x-goog-api-key": this.apiKey },
       body,
       "Gemini",
-      this.timeoutMs,
+      call.timeoutMs ?? this.timeoutMs,
     );
     const raw = extractText(json);
     return { boxes: parseBoxes(toOurFormat(raw)), usage: extractUsage(json), raw };

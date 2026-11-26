@@ -5,7 +5,7 @@ import { extractLargestImage } from "./pdf";
 import { planTiles, touchesInnerEdge, type Tile } from "./tiles";
 import { LOW_RES_WARNING, ORIGIN_LABEL, type Finding, type PageResult } from "./types";
 import { sectorName } from "./zones";
-import { VisionError, type VisionBox, type VisionProvider, type VisionUsage } from "../vision/provider";
+import { CALL_TIMEOUT_MS, RETRY_TIMEOUT_MS, VisionError, type VisionBox, type VisionProvider, type VisionUsage } from "../vision/provider";
 import { REFINE_PROMPT } from "../vision/prompt";
 import { countTextBlobs, snapToInk, toGray } from "./ink";
 
@@ -39,6 +39,14 @@ export type ImageOptions = {
    * corte de 20 s por llamada, la página termina en ~80 s como máximo (maxDuration de la ruta: 120 s).
    */
   deadlineMs: number;
+  /**
+   * Reintento tras un corte por tiempo: plazo `retryTimeoutMs` en vez del de siempre, pero ninguna
+   * llamada pasa de `hardStopMs` desde el inicio de la página (maxDuration de la ruta: 120 s). Si
+   * quedan menos de `minCallMs` hasta ese tope, no se reintenta.
+   */
+  retryTimeoutMs: number;
+  hardStopMs: number;
+  minCallMs: number;
   jpegQuality: number;
   /**
    * Segunda mirada por choque: recorte de la imagen original con `refineMarginPt` de margen,
@@ -83,6 +91,9 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   concurrency: 6,
   retries: 2,
   deadlineMs: 60_000,
+  retryTimeoutMs: RETRY_TIMEOUT_MS,
+  hardStopMs: 95_000,
+  minCallMs: 10_000,
   jpegQuality: 88,
   // Apagado: en 5 corridas medidas el ajuste a tinta solo logra lo mismo sin llamadas extra.
   refine: false,
@@ -151,15 +162,16 @@ export type ImagePageResult = PageResult & {
   byPass?: Record<string, PassStats>;
 };
 
-async function withRetries<T>(fn: () => Promise<T>, retries: number, deadline = Infinity): Promise<T> {
+async function withRetries<T>(fn: (lastError: unknown) => Promise<T>, retries: number, deadline = Infinity): Promise<T> {
   let last: unknown = new VisionError("Se agotó el tiempo de la página", false);
+  let previous: unknown = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
     // Sin tiempo para otro intento completo: mejor "no verificada" que un corte de la función.
     if (Date.now() > deadline) break;
     try {
-      return await fn();
+      return await fn(previous);
     } catch (e) {
-      last = e;
+      last = previous = e;
       if (e instanceof VisionError && !e.retryable) break;
       if (attempt < retries) await new Promise((r) => setTimeout(r, 800 * 2 ** attempt));
     }
@@ -254,6 +266,7 @@ export async function analyzeImagePage(
   const opts = { ...DEFAULT_IMAGE_OPTIONS, ...options };
   const started = Date.now();
   const deadline = started + opts.deadlineMs;
+  const hardStop = started + opts.hardStopMs;
   // Tamaño de la hoja como se ve (con /Rotate 90 el ancho es el alto del PDF).
   const viewport = page.getViewport({ scale: 1 });
   const pageSize = { width: viewport.width, height: viewport.height };
@@ -321,9 +334,16 @@ export async function analyzeImagePage(
       .toBuffer();
     try {
       const r = await withRetries(
-        () => {
+        (previous) => {
+          // Tras un corte por tiempo, el modelo suele estar razonando de más, no colgado: el
+          // reintento espera más, sin pasarse del tope duro de la página.
+          const left = hardStop - Date.now();
+          // Por la propiedad y no por instanceof: el error puede venir de otra copia del módulo.
+          const timedOut = (previous as { timedOut?: unknown } | null)?.timedOut === true;
+          const timeoutMs = timedOut ? Math.min(opts.retryTimeoutMs, left) : left < CALL_TIMEOUT_MS ? left : undefined;
+          if (timeoutMs !== undefined && timeoutMs < opts.minCallMs) throw new VisionError("Se agotó el tiempo de la página", false, true);
           stats(pass.name).apiCalls++;
-          return provider.detectOverlaps({ data, mime: "image/jpeg", width: tile.w, height: tile.h });
+          return provider.detectOverlaps({ data, mime: "image/jpeg", width: tile.w, height: tile.h }, undefined, { timeoutMs });
         },
         opts.retries,
         deadline,

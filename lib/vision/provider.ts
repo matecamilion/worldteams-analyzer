@@ -33,13 +33,18 @@ export interface VisionProvider {
   readonly name: string;
   readonly model: string;
   /** `prompt` permite reutilizar la llamada para el refinamiento sobre un recorte. */
-  detectOverlaps(image: VisionImage, prompt?: string): Promise<{ boxes: VisionBox[]; usage: VisionUsage; raw: string }>;
+  detectOverlaps(image: VisionImage, prompt?: string, call?: CallOptions): Promise<{ boxes: VisionBox[]; usage: VisionUsage; raw: string }>;
 }
+
+/** Opciones de una llamada puntual: el reintento tras un corte por tiempo pide un plazo más largo. */
+export type CallOptions = { timeoutMs?: number };
 
 export class VisionError extends Error {
   constructor(
     message: string,
     readonly retryable: boolean,
+    /** La llamada se cortó por el plazo (el modelo razonaba de más), no por un error de la API. */
+    readonly timedOut = false,
   ) {
     super(message);
   }
@@ -123,6 +128,12 @@ export function parseBoxes(raw: string): VisionBox[] {
 
 /** Tiempo máximo por llamada al modelo de visión. */
 export const CALL_TIMEOUT_MS = 20_000;
+/**
+ * Plazo del reintento cuando el intento anterior se cortó por tiempo. Medido en el plano real ×2:
+ * un mosaico se cortó a los 20 s en 3 intentos de 2 corridas y, con plazo largo, respondió en 17 s
+ * con 3.321 tokens de razonamiento: está al borde, no colgado.
+ */
+export const RETRY_TIMEOUT_MS = 35_000;
 
 /**
  * POST JSON con corte por AbortController: el plazo cubre la conexión y la lectura completa
@@ -152,7 +163,7 @@ export async function postJsonWithTimeout(
   } catch (e) {
     if (e instanceof VisionError) throw e;
     const msg = controller.signal.aborted ? `sin respuesta en ${timeoutMs / 1000} s` : (e as Error).message;
-    throw new VisionError(`${label} no respondió: ${msg}`, true);
+    throw new VisionError(`${label} no respondió: ${msg}`, true, controller.signal.aborted);
   } finally {
     clearTimeout(timer);
   }

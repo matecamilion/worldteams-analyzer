@@ -98,3 +98,48 @@ test("Gemini: box_2d [ymin,xmin,ymax,xmax] 0–1000 se convierte a [x0,y0,x1,y1]
   const [b] = parseBoxes(toOurFormat(extractText(json)));
   assert.deepEqual([b.x, b.y, +b.w.toFixed(3), +b.h.toFixed(3)], [0.2, 0.1, 0.4, 0.05]);
 });
+
+test("tras un corte por tiempo, el reintento espera más; tras otro error, el plazo de siempre", async () => {
+  const doc = await loadPdf(new Uint8Array(await readFile("samples/planos-prueba.pdf")));
+  const seen: (number | undefined)[][] = [];
+  const make = (timedOut: boolean): VisionProvider => {
+    const mine: (number | undefined)[] = [];
+    seen.push(mine);
+    return {
+      name: "lento",
+      model: "test",
+      async detectOverlaps(_img, _p, call) {
+        mine.push(call?.timeoutMs);
+        if (mine.length === 1) throw new VisionError("no respondió", true, timedOut);
+        return { boxes: [], usage: { inputTokens: 0, outputTokens: 0 }, raw: "" };
+      },
+    };
+  };
+  const one = { passes: [{ ...TILES_PASS, tileSize: 100_000, overlap: 0 }], skipBlankTiles: false };
+  const a = await analyzeImagePage(6, await doc.getPage(6), make(true), one);
+  const b = await analyzeImagePage(6, await doc.getPage(6), make(false), one);
+  assert.equal(a.status, "ok");
+  assert.deepEqual(seen[0], [undefined, 35_000]);
+  assert.deepEqual(seen[1], [undefined, undefined]);
+  assert.equal(b.status, "ok");
+});
+
+test("ningún intento pasa del tope duro de la página", async () => {
+  const doc = await loadPdf(new Uint8Array(await readFile("samples/planos-prueba.pdf")));
+  const asked: (number | undefined)[] = [];
+  const slow: VisionProvider = {
+    name: "lento",
+    model: "test",
+    async detectOverlaps(_img, _p, call) {
+      asked.push(call?.timeoutMs);
+      throw new VisionError("no respondió", true, true);
+    },
+  };
+  // Tope de 12 s: el primer intento entra; el reintento de 35 s no cabe (quedan < 10 s) y no se hace.
+  const r = await analyzeImagePage(6, await doc.getPage(6), slow, {
+    passes: [{ ...TILES_PASS, tileSize: 100_000, overlap: 0 }], skipBlankTiles: false, hardStopMs: 12_000, retries: 1,
+  });
+  assert.equal(r.status, "no_verificada");
+  assert.equal(asked.length, 2);
+  assert.ok(asked.every((t) => t !== undefined && t <= 12_000), JSON.stringify(asked));
+});

@@ -45,6 +45,40 @@ export class VisionError extends Error {
   }
 }
 
+/** Lo que se muestra cuando la IA vio un texto pero no pudo leerlo. */
+export const UNREADABLE_TEXT = "texto no legible";
+
+// Claves y valores del formato de respuesta: nunca son texto del plano.
+const RESPONSE_KEYS = /^(confidence|confianza|box|texts?|textos?|overlaps?|null|undefined|none|n\/?a)$/i;
+// Comentarios del modelo en vez de texto leído: "ilegible", "segundo texto superpuesto", "letras dobles"…
+const UNREADABLE_HINT =
+  /ilegible|no (se )?(lee|legible|leíble|distingue)|illegible|unreadable|unknown|desconocid|superpuest|encimad|letras dobles|texto (tenue|gris|de fondo|detr[aá]s|tapado)|segundo texto|^\W*$/i;
+
+/**
+ * Deja sólo lo que parece texto del plano. Saca las claves del JSON que el modelo a veces mete en
+ * la lista ("confidence"), sus comentarios entre paréntesis y los puntos suspensivos; si lo que
+ * queda es una descripción en vez de un texto leído, lo reemplaza por "texto no legible".
+ */
+export function cleanTexts(raw: unknown[]): string[] {
+  const out: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== "string") continue;
+    const original = item.trim();
+    if (!original || RESPONSE_KEYS.test(original.replace(/["':]/g, "").trim())) continue;
+    const text = original
+      .replace(/\([^)]*\)?/g, " ")
+      .replace(/\[[^\]]*\]?/g, " ")
+      .replace(/…|\.{2,}|\?{2,}/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    // Rótulo leído: corto y sin comentario. Más de 40 caracteres es una frase del modelo, no un rótulo.
+    const unreadable = !text || UNREADABLE_HINT.test(original) || text.length > 40;
+    out.push(unreadable ? UNREADABLE_TEXT : text);
+  }
+  // Un "texto no legible" por texto, sin repetir el mismo rótulo leído dos veces seguidas.
+  return out.filter((t, i) => t === UNREADABLE_TEXT || out.indexOf(t) === i).slice(0, 4);
+}
+
 /** Interpreta la respuesta del modelo con tolerancia: JSON suelto, bloque ```json o texto alrededor. */
 export function parseBoxes(raw: string): VisionBox[] {
   const match = raw.match(/\{[\s\S]*\}/);
@@ -69,13 +103,18 @@ export function parseBoxes(raw: string): VisionBox[] {
     const [ay, by] = [clamp(Math.min(y0, y1)), clamp(Math.max(y0, y1))];
     if (bx - ax <= 0 || by - ay <= 0) continue;
     const texts = (item as { texts?: unknown }).texts;
-    const conf = Number((item as { confidence?: unknown }).confidence);
+    let conf = Number((item as { confidence?: unknown }).confidence);
+    // Lista mal cerrada: ["COCINA","…","confidence",0.7] trae la confianza adentro de los textos.
+    if (!isFinite(conf) && Array.isArray(texts)) {
+      const k = texts.findIndex((t) => typeof t === "string" && /^confidence$/i.test(t.trim()));
+      if (k >= 0 && typeof texts[k + 1] === "number") conf = texts[k + 1] as number;
+    }
     out.push({
       x: ax,
       y: ay,
       w: bx - ax,
       h: by - ay,
-      texts: Array.isArray(texts) ? texts.filter((t): t is string => typeof t === "string").slice(0, 4) : [],
+      texts: Array.isArray(texts) ? cleanTexts(texts) : [],
       confidence: isFinite(conf) ? clamp(conf) : 0.5,
     });
   }

@@ -4,7 +4,7 @@
 // navegador del usuario. Cambiar DETECTOR_VERSION invalida todo lo guardado.
 import type { PageResult } from "@/lib/detector/types";
 
-export const DETECTOR_VERSION = "2026-11-26.1";
+export const DETECTOR_VERSION = "2026-11-26.2";
 const PREFIX = "revisor:pagina:";
 const INDEX = "revisor:indice";
 const MAX_ENTRIES = 200;

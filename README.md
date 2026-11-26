@@ -40,6 +40,36 @@ Variables de entorno. Los valores nunca se commitean: `.env*` está en `.gitigno
 Sin `DEEPSEEK_API_KEY` la herramienta funciona igual con planos vectoriales; las páginas
 escaneadas quedan "no verificadas".
 
+## Base de datos (Supabase)
+
+Todo está en `supabase/`:
+
+| Archivo | Para qué |
+|---|---|
+| `schema.sql` | Esquema completo para un proyecto nuevo: tablas, vista, funciones, RLS, bucket y datos de ejemplo |
+| `migrations/20261126_video_tope_latidos.sql` | Cambio para un proyecto que ya tenía el esquema anterior |
+| `verificar_20261126.sql` | Controles de sólo lectura: cada fila tiene que decir `ok = true` |
+
+**Proyecto nuevo:**
+
+1. Crear el proyecto en Supabase y copiar URL, clave anon y clave service_role a `.env.local`.
+2. En el SQL Editor, cambiar los correos de ejemplo del final de `schema.sql` y ejecutarlo
+   entero (es idempotente).
+3. Storage → bucket `video` → subir el video como `worldteams-intro.mp4`.
+4. Authentication → Providers → Google: cargar el Client ID y el secret de Google Cloud. En
+   Google Cloud, la URI de redirección autorizada es `https://<proyecto>.supabase.co/auth/v1/callback`.
+5. Authentication → URL Configuration: Site URL = la URL de producción, y en Redirect URLs
+   `http://localhost:3000/auth/callback` y `https://<sitio>/auth/callback`.
+6. Recomendado: desactivar el proveedor Email, porque la app sólo usa Google.
+7. Ejecutar `verificar_20261126.sql`.
+
+**Proyecto existente:** ejecutar la migración y después `verificar_20261126.sql`. El código
+funciona antes y después de aplicarla, pero el control completo (incluidos dos latidos
+simultáneos) queda recién con la migración.
+
+Para habilitar a alguien más: `insert into public.allowed_emails (email, display_name) values
+('correo@dominio.com', 'Nombre');`. El correo tiene que ir en minúsculas.
+
 ## Login con Google y lista de habilitados
 
 - El ingreso es con Google a través de Supabase Auth (`/login` → Google → `/auth/callback`).
@@ -65,15 +95,21 @@ El reproductor (`/video`) no deja adelantar ni cambiar la velocidad, pero eso es
 
 - **Latidos:** mientras se reproduce, el navegador manda su posición cada 5 s (y al pausar) a
   `POST /api/video/heartbeat`. El usuario sale de la sesión, nunca del cuerpo del pedido.
-- **Tope de crédito** (`lib/video.ts`, con pruebas en `tests/video.test.mts`): el crédito nunca
-  baja y nunca avanza más que el tiempo real transcurrido desde el latido anterior (a 1×, con 2 %
-  + 0,3 s de tolerancia), ni más de 15 s por latido, ni más que la duración. El primer latido
-  acredita como mucho 2 s. Saltar al final, acelerar o mandar latidos inventados no suma más
-  rápido que mirar el video.
+- **Reglas de crédito** (`lib/video.ts → evaluateBeat`, con pruebas en `tests/video.test.mts`;
+  las mismas en la función SQL `record_heartbeat`, que bloquea la fila):
+  - un latido a menos de 4 s del último aceptado se ignora (no acredita ni mueve la hora), y el
+    reproductor lo reenvía cuando corresponde: mandar latidos más seguidos no acelera nada;
+  - cada latido acredita como mucho el tiempo real transcurrido × 1,02, con un máximo de 15 s;
+  - en total, nunca más que el tiempo real desde el primer latido × 1,02 + 2 s;
+  - el crédito nunca baja ni pasa la duración.
+
+  Resultado medido en las pruebas: con latidos inventados cada 100 ms, 250 ms o 5 s, el video
+  no se completa antes de ~145 s (mirándolo de verdad, a los ~150 s). Saltar al final, acelerar o
+  mandar latidos falsos no sirve.
 - **Duración fija en el servidor:** 152,853 s; no se usa la que informa el navegador. El video
   cuenta como visto al **98 %** (≈ 149,8 s).
 - El avance se guarda en `video_progress` con la función `record_heartbeat` (sólo service role);
-  `completed_at` marca el completado. Al volver, el reproductor retoma desde lo acreditado.
+  `first_heartbeat_at` es el inicio y `completed_at` marca el completado. Al volver, el reproductor retoma desde lo acreditado.
 - **Guardas:** `/detector` y `POST /api/analyze` llaman a `requireToolAccess()`: sesión válida +
   lista de habilitados + video completado según `video_progress`. Sin eso, la página redirige (al
   login, a cerrar sesión si la cuenta no está habilitada, o a `/video`) y la API responde 401/403
@@ -259,6 +295,7 @@ configuración, sobre las 3 páginas escaneadas de las muestras. Costo con tarif
 | `vision-bench.mts`, `rescore-bench.mts` | Corridas reales de la página 6 y su puntuación |
 | `calib-synthetic.mts` | Calibración de coordenadas con imágenes sintéticas (respalda no corregir la escala) |
 | `snap-offline.mts` | Ajuste a tinta sin llamar a la API |
+| `../supabase/*.sql` | Esquema, migración y verificación de la base (ver "Base de datos") |
 | `diag-coords.mts`, `crop-p6.mts`, `probe-image.mjs`, `dump-text.mjs`, `run-detector.mts` | Diagnósticos puntuales |
 
 Los scripts que llaman a la IA leen las claves de `.env.local`. Los resultados quedan en `bench/`.

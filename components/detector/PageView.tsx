@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { NumberedFinding } from "@/lib/detector/report";
 import { SEVERITY_LABEL } from "@/lib/detector/report";
-import type { PageResult } from "@/lib/detector/types";
+import { LOW_RES_WARNING, type PageResult } from "@/lib/detector/types";
 import {
   clampView,
   fullView,
@@ -505,6 +505,11 @@ export function PageView({
         )}
       </div>
       {result?.error && status === "no_verificada" && <p className="mt-2 text-sm text-cercania">{result.error}</p>}
+      {result?.lowResolution && (status === "ok" || status === "no_verificada") && (
+        <p role="note" className="mt-2 text-sm text-cercania">
+          {LOW_RES_WARNING}
+        </p>
+      )}
     </section>
   );
 }

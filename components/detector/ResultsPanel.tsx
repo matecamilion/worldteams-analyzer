@@ -4,7 +4,7 @@ import type { NumberedFinding } from "@/lib/detector/report";
 import { AI_TEXT_NOTE, SEVERITY_LABEL } from "@/lib/detector/report";
 
 const AI_TEXT_NOTE_CAP = AI_TEXT_NOTE[0].toUpperCase() + AI_TEXT_NOTE.slice(1);
-import type { PageResult } from "@/lib/detector/types";
+import { LOW_RES_WARNING, type PageResult } from "@/lib/detector/types";
 import type { PageStatus } from "./PageView";
 
 type PageEntry = { page: number; status: PageStatus; result?: PageResult };
@@ -57,6 +57,11 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                 </span>
               </div>
 
+              {p.result?.lowResolution && (p.status === "ok" || p.status === "no_verificada") && (
+                <p role="note" className="mx-4 mb-2 rounded border border-cercania/40 bg-cercania-suave px-3 py-1.5 text-sm text-tinta">
+                  {LOW_RES_WARNING}
+                </p>
+              )}
               {p.status === "pendiente" && <p className="px-4 pb-3 text-sm text-gris">En espera</p>}
               {p.status === "analizando" && (
                 <p className="px-4 pb-3 text-sm text-tinta" aria-busy="true">

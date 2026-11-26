@@ -3,7 +3,7 @@
 import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import type { Rect } from "./geometry";
 import { AI_TEXT_NOTE, numberFindings, SEVERITY_LABEL, summarize, type NumberedFinding } from "./report";
-import type { Finding, PageResult, Severity } from "./types";
+import { LOW_RES_WARNING, type Finding, type PageResult, type Severity } from "./types";
 
 /** Lo que pdfjs sabe de la página: `view` (CropBox ∩ MediaBox, [x0, y0, x1, y1]) y `/Rotate`. */
 export type PageGeometry = { view: [number, number, number, number]; rotate: number };
@@ -271,6 +271,16 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
     for (const p of unverified) para(`Página ${p.page}: ${p.error ?? "no se pudo analizar."}`, 9.5, regular, INK);
   } else {
     para("Todas las páginas se verificaron.", 9.5, regular, GRAY);
+  }
+  const lowRes = [...input.pages].filter((p) => p.lowResolution).sort((a, b) => a.page - b.page);
+  if (lowRes.length) {
+    y -= 4;
+    para(
+      `${lowRes.length === 1 ? "Página" : "Páginas"} ${lowRes.map((p) => p.page).join(", ")}: ${LOW_RES_WARNING.charAt(0).toLowerCase()}${LOW_RES_WARNING.slice(1)}`,
+      10.5,
+      bold,
+      COLOR.cercania,
+    );
   }
   if (input.findings.some((f) => f.source === "vision")) {
     para(`Los textos de las páginas escaneadas los leyó la IA y pueden tener errores: van rotulados "${AI_TEXT_NOTE}".`, 9.5, regular, GRAY);

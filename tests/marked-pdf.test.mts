@@ -112,3 +112,21 @@ test("el PDF con marcas conserva las páginas, agrega el resumen y respeta 'Most
   const ops = async (d: PDFDocument) => (await loadPdf(new Uint8Array(await d.save()))).getPage(1).then((p) => p.getOperatorList()).then((l) => l.fnArray.length);
   assert.ok((await ops(on)) > (await ops(off)), "con cercanías se dibuja más");
 });
+
+test("la hoja de resumen avisa de las páginas escaneadas de baja resolución", async () => {
+  const src = await PDFDocument.create();
+  src.addPage([595.28, 841.89]);
+  src.addPage([595.28, 841.89]);
+  const bytes = await src.save();
+  const page = (n: number, lowResolution?: PageResult["lowResolution"]): PageResult => ({
+    page: n, kind: "image", width: 595.28, height: 841.89, textCount: 0, findings: [], status: "ok", ms: 1, lowResolution,
+  });
+  const geometry = { 1: { view: [0, 0, 595.28, 841.89] as PageGeometry["view"], rotate: 0 }, 2: { view: [0, 0, 595.28, 841.89] as PageGeometry["view"], rotate: 0 } };
+  const textOfSummary = async (pages: PageResult[]) => {
+    const doc = await loadPdf(await buildMarkedPdf({ bytes, fileName: "x.pdf", pages, geometry, showNear: false }));
+    const tc = await (await doc.getPage(doc.numPages)).getTextContent();
+    return tc.items.map((i) => ("str" in i ? i.str : "")).join(" ");
+  };
+  assert.match(await textOfSummary([page(1), page(2, { ppi: 102, upscale: 1.96 })]), /Página 2: imagen de baja resolución: los resultados pueden ser poco confiables/);
+  assert.doesNotMatch(await textOfSummary([page(1), page(2)]), /baja resolución/);
+});

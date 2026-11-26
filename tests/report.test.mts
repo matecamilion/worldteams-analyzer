@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { numberFindings, summarize, toCsv } from "../lib/detector/report";
+import { numberFindings, summarize } from "../lib/detector/report";
 import type { Finding, PageResult } from "../lib/detector/types";
 
 const f = (page: number, severity: Finding["severity"], y: number, texts: string[]): Finding => ({
@@ -25,11 +25,6 @@ test("numera por página, choques primero", () => {
   assert.deepEqual(n.map((x) => [x.page, x.texts[0], x.n]), [[1, "B", 1], [1, "A", 2], [2, "C", 3]]);
 });
 
-test("el CSV usa ; y BOM, escapa textos y no omite páginas no verificadas", () => {
-  const csv = toCsv("plano.pdf", [page(1, [f(1, "choque", 10, ['TEXTO "A"', "B;C"])]), page(2, [], "no_verificada")]);
-  assert.ok(csv.startsWith("﻿archivo;pagina;"));
-  assert.match(csv, /"TEXTO ""A"" \/ B;C"/);
-  assert.match(csv, /plano\.pdf;2;;Página no verificada;Falló la IA/);
-  assert.match(csv, /0,95/);
+test("el resumen cuenta por tipo y no omite páginas no verificadas", () => {
   assert.deepEqual(summarize([page(1, [f(1, "choque", 1, [])]), page(2, [], "no_verificada")]), { choques: 1, cercanias: 0, duplicados: 0, noVerificadas: 1 });
 });

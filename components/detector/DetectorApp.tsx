@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { forgetCachedPage, getCachedPage, hashPdf, putCachedPage } from "@/lib/client/cache";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
-import { numberFindings, summarize, toCsv } from "@/lib/detector/report";
+import { numberFindings, summarize } from "@/lib/detector/report";
 import type { PageResult } from "@/lib/detector/types";
 import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
 import { ResultsPanel } from "./ResultsPanel";
@@ -74,6 +74,8 @@ export function DetectorApp() {
   const [running, setRunning] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNear, setShowNear] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [zoom, setZoom] = useState<ZoomCommand | null>(null);
   /** Página que tiene zoom (por un hallazgo o por un gesto), para que Esc sepa a quién volver. */
@@ -169,6 +171,7 @@ export function DetectorApp() {
     setPages([]);
     setRunning(false);
     setUploadError(null);
+    setExportError(null);
   };
 
   const results = useMemo(() => pages.flatMap((p) => (p.result ? [p.result] : [])), [pages]);
@@ -240,14 +243,31 @@ export function DetectorApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, [navigable, selectedId, select, showFullPage]);
 
-  const exportCsv = () => {
-    if (!loaded) return;
-    const blob = new Blob([toCsv(loaded.name, results)], { type: "text/csv;charset=utf-8" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${loaded.name.replace(/\.pdf$/i, "")}-textos-superpuestos.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  /** Arma el PDF con marcas en el navegador (pdf-lib se carga recién acá): nada pasa por el servidor. */
+  const downloadMarkedPdf = async () => {
+    if (!loaded || exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const { buildMarkedPdf, markedFileName } = await import("@/lib/detector/marked-pdf");
+      // La misma geometría con la que pdfjs dibuja la página en pantalla (caja visible y rotación).
+      const geometry: Record<number, { view: [number, number, number, number]; rotate: number }> = {};
+      for (let n = 1; n <= loaded.doc.numPages; n++) {
+        const page = await loaded.doc.getPage(n);
+        geometry[n] = { view: page.view as [number, number, number, number], rotate: page.rotate };
+      }
+      const pdf = await buildMarkedPdf({ bytes: loaded.bytes, fileName: loaded.name, pages: results, geometry, showNear });
+      const blob = new Blob([pdf as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = markedFileName(loaded.name);
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+    } catch {
+      setExportError("No se pudo armar el PDF con marcas. Si el archivo está protegido, probá con una copia sin protección.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   const onCrops = useCallback((c: Record<string, string>) => setCrops((prev) => ({ ...prev, ...c })), []);
@@ -311,17 +331,23 @@ export function DetectorApp() {
           <div className="ml-auto flex gap-2">
             <button
               type="button"
-              onClick={exportCsv}
-              disabled={running}
+              onClick={downloadMarkedPdf}
+              disabled={running || exporting}
+              aria-busy={exporting}
               title={running ? "Disponible cuando termine el análisis" : undefined}
               className="rounded bg-verde px-3.5 py-2 text-sm font-semibold text-papel hover:bg-tinta disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Exportar CSV
+              {exporting ? "Armando el PDF…" : "Descargar PDF con marcas"}
             </button>
             <button type="button" onClick={reset} className="rounded border border-linea-fuerte bg-hoja px-3.5 py-2 text-sm font-medium hover:bg-papel">
               Analizar otro PDF
             </button>
           </div>
+          {exportError && (
+            <p role="alert" className="basis-full text-sm text-choque">
+              {exportError}
+            </p>
+          )}
         </div>
         {/* Progreso por página: un segmento por hoja. */}
         <div className="mx-auto flex max-w-[1600px] gap-1 px-4 pb-2 sm:px-6" role="progressbar" aria-label="Progreso del análisis" aria-valuemin={0} aria-valuemax={pages.length} aria-valuenow={done}>

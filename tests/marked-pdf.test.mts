@@ -65,7 +65,7 @@ test("caja de pantalla → rectángulo PDF, sin rotar y rotada 90°", () => {
 });
 
 test("las cajas de IA salen de la caja normalizada; las vectoriales, de la caja en pt", () => {
-  const base = { id: "a", page: 1, severity: "choque", texts: [], zone: "", confidence: 1, originLabel: "" } as const;
+  const base = { id: "a", page: 1, severity: "choque" as const, texts: [] as string[], zone: "", confidence: 1, originLabel: "" };
   const vision: Finding = { ...base, source: "vision", box: { x: 0, y: 0, w: 0, h: 0 }, boxNorm: { x: 0.5, y: 0.25, w: 0.1, h: 0.01 } };
   assert.deepEqual(findingScreenBox(vision, { width: 1000, height: 800 }), { x: 500, y: 200, w: 100, h: 8 });
   const vector: Finding = { ...base, source: "vector", box: { x: 1, y: 2, w: 3, h: 4 }, boxNorm: { x: 0, y: 0, w: 0, h: 0 } };

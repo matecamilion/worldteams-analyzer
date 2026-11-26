@@ -13,6 +13,8 @@ type Props = {
 };
 
 type ServerState = { credited: number; completed: boolean };
+/** El servidor ignora latidos a menos de 4 s del último aceptado y avisa cuándo reenviarlo. */
+type BeatResponse = ServerState & { error?: string; retryInMs?: number };
 
 const clock = (s: number) => {
   const t = Math.max(0, Math.floor(s));
@@ -35,10 +37,17 @@ export function VideoPlayer({ src, duration, completeAt, heartbeatMs, initialCre
   const [notice, setNotice] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  /** Reenvío pendiente de un latido que llegó demasiado pronto (pausa, fin del video). */
+  const retryTimer = useRef<number | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
 
   const beat = useCallback(async () => {
     const v = video.current;
     if (!v) return;
+    if (retryTimer.current !== null) {
+      window.clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
     try {
       const res = await fetch("/api/video/heartbeat", {
         method: "POST",
@@ -52,14 +61,31 @@ export function VideoPlayer({ src, duration, completeAt, heartbeatMs, initialCre
         window.location.assign(`${window.location.origin}/login`);
         return;
       }
-      const data = (await res.json()) as ServerState & { error?: string };
+      const data = (await res.json()) as BeatResponse;
       if (!res.ok) throw new Error(data.error ?? "No se pudo guardar tu avance.");
       setServer({ credited: data.credited, completed: data.completed });
       setSyncError(null);
+      // No se contó por llegar muy seguido: se reenvía con la posición de ese momento.
+      if (data.retryInMs && !data.completed) {
+        retryTimer.current = window.setTimeout(() => {
+          retryTimer.current = null;
+          setRetryTick((n) => n + 1);
+        }, data.retryInMs + 100);
+      }
     } catch (e) {
       setSyncError((e as Error).message || "No se pudo guardar tu avance. Reintentamos en unos segundos.");
     }
   }, []);
+  // Reenvío del latido que llegó demasiado pronto.
+  useEffect(() => {
+    if (retryTick > 0) void beat();
+  }, [retryTick, beat]);
+  useEffect(
+    () => () => {
+      if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+    },
+    [],
+  );
 
   // Latidos mientras reproduce.
   useEffect(() => {

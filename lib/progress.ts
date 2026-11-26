@@ -1,20 +1,30 @@
 import "server-only";
 import { createSupabaseAdmin } from "./supabase/admin";
-import { isComplete, nextCredit, VIDEO_DURATION_S } from "./video";
+import { evaluateBeat, isComplete, VIDEO_DURATION_S } from "./video";
 import type { SessionUser } from "./guard";
 
-export type VideoState = { credited: number; duration: number; completed: boolean; completedAt: string | null };
+export type VideoState = {
+  credited: number;
+  duration: number;
+  completed: boolean;
+  completedAt: string | null;
+  /** El latido llegó antes del intervalo mínimo y no se contó: reenviarlo en este tiempo. */
+  retryInMs?: number;
+};
 
 type Row = {
   credited_seconds: number | string | null;
   last_heartbeat_at: string | null;
+  /** Columna agregada por la migración 20261126; puede no existir todavía. */
+  first_heartbeat_at?: string | null;
   completed_at: string | null;
 };
 
 async function readRow(email: string): Promise<Row | null> {
   const { data, error } = await createSupabaseAdmin()
     .from("video_progress")
-    .select("credited_seconds, last_heartbeat_at, completed_at")
+    // "*": sigue funcionando aunque la migración que agrega first_heartbeat_at no se haya aplicado.
+    .select("*")
     .eq("email", email)
     .maybeSingle();
   if (error) throw new Error(`No se pudo leer el avance: ${error.message}`);
@@ -31,32 +41,37 @@ export async function getVideoState(email: string): Promise<VideoState> {
 }
 
 /**
- * Registra un latido del reproductor. La posición informada por el navegador no se cree:
- * se acota con nextCredit (monótono, no más que el tiempo real) y recién esa posición validada
- * se pasa a record_heartbeat (sólo service role). Después se relee la fila como fuente de verdad.
+ * Registra un latido del reproductor. La posición informada por el navegador no se cree: se
+ * evalúa con evaluateBeat (lib/video.ts) y recién la posición validada se pasa a
+ * record_heartbeat (sólo service role), que aplica las mismas reglas con la fila bloqueada.
+ * Un latido demasiado seguido no llega a la base: se devuelve el estado con `retryInMs`.
  */
 export async function recordHeartbeat(user: SessionUser, reported: number, now = Date.now()): Promise<VideoState> {
   const before = await readRow(user.email);
   if (before?.completed_at) return toState(before);
+  const credited = Number(before?.credited_seconds ?? 0);
   const lastBeatAt = before?.last_heartbeat_at ? Date.parse(before.last_heartbeat_at) : null;
-  const position = nextCredit({ credited: Number(before?.credited_seconds ?? 0), lastBeatAt, now, reported });
+  // Sin first_heartbeat_at (fila anterior a la migración): se estima el inicio como en la migración.
+  const firstBeatAt = before?.first_heartbeat_at
+    ? Date.parse(before.first_heartbeat_at)
+    : lastBeatAt !== null
+      ? lastBeatAt - credited * 1000
+      : null;
+  const beat = evaluateBeat({ credited, firstBeatAt, lastBeatAt, now, reported });
+  if (!beat.accepted) return { ...toState(before), retryInMs: beat.retryInMs };
 
   const admin = createSupabaseAdmin();
   const { error } = await admin.rpc("record_heartbeat", {
     p_email: user.email,
     p_user_id: user.id,
-    p_position: position,
+    p_position: beat.credited,
     p_duration: VIDEO_DURATION_S,
   });
   if (error) throw new Error(`No se pudo registrar el avance: ${error.message}`);
-
   let after = await readRow(user.email);
-  // Si la función no marca el completado (o la fecha del latido), lo asegura el servidor.
-  const patch: Record<string, string> = {};
-  if (after && !after.completed_at && isComplete(Number(after.credited_seconds ?? 0))) patch.completed_at = new Date(now).toISOString();
-  if (after && (!after.last_heartbeat_at || Date.parse(after.last_heartbeat_at) < now - 5_000)) patch.last_heartbeat_at = new Date(now).toISOString();
-  if (Object.keys(patch).length) {
-    const { error: e2 } = await admin.from("video_progress").update(patch).eq("email", user.email);
+  // Si la función no marcó el completado, lo asegura el servidor.
+  if (after && !after.completed_at && isComplete(Number(after.credited_seconds ?? 0))) {
+    const { error: e2 } = await admin.from("video_progress").update({ completed_at: new Date(now).toISOString() }).eq("email", user.email);
     if (e2) throw new Error(`No se pudo cerrar el avance: ${e2.message}`);
     after = await readRow(user.email);
   }

@@ -1,0 +1,820 @@
+{
+ "nota": "Generado por scripts/make-rotated-samples.mts. Mismos hallazgos que la página original (sin rotar, origen 0), con la caja en pt de pantalla (origen arriba-izquierda, ya rotada) y, en vectoriales, la zona que se ve.",
+ "files": [
+  {
+   "file": "4-vectorial-rotado.pdf",
+   "pages": [
+    {
+     "page": 1,
+     "kind": "vector",
+     "rotate": 90,
+     "modo": "girada desde 1-vectorial-A3-y-A4.pdf p1",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        715.48,
+        300,
+        13.52,
+        26.35
+       ],
+       "zone": "sector superior derecho"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        517.06,
+        330,
+        16.44,
+        96.06
+       ],
+       "zone": "sector superior central"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        480,
+        770,
+        35.77,
+        46.67
+       ],
+       "zone": "sector central"
+      },
+      {
+       "severity": "duplicado",
+       "texts": [
+        "PUERTA P1",
+        "PUERTA P1"
+       ],
+       "box": [
+        498.11,
+        160,
+        8.64,
+        50.01
+       ],
+       "zone": "sector superior central"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "NPT +0.15",
+        "ESC 1:50"
+       ],
+       "box": [
+        127.9,
+        800,
+        9.6,
+        91.88
+       ],
+       "zone": "sector inferior izquierdo"
+      }
+     ]
+    },
+    {
+     "page": 2,
+     "kind": "vector",
+     "rotate": 180,
+     "modo": "girada desde 1-vectorial-A3-y-A4.pdf p1",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        864.2,
+        715.48,
+        26.35,
+        13.52
+       ],
+       "zone": "sector inferior derecho"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        764.49,
+        517.06,
+        96.06,
+        16.44
+       ],
+       "zone": "sector central derecho"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        373.88,
+        480,
+        46.67,
+        35.77
+       ],
+       "zone": "sector central"
+      },
+      {
+       "severity": "duplicado",
+       "texts": [
+        "PUERTA P1",
+        "PUERTA P1"
+       ],
+       "box": [
+        980.54,
+        498.11,
+        50.01,
+        8.64
+       ],
+       "zone": "sector central derecho"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "NPT +0.15",
+        "ESC 1:50"
+       ],
+       "box": [
+        298.67,
+        127.9,
+        91.88,
+        9.6
+       ],
+       "zone": "sector superior izquierdo"
+      }
+     ]
+    },
+    {
+     "page": 3,
+     "kind": "vector",
+     "rotate": 270,
+     "modo": "girada desde 1-vectorial-A3-y-A4.pdf p1",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        112.89,
+        864.2,
+        13.52,
+        26.35
+       ],
+       "zone": "sector inferior izquierdo"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        308.39,
+        764.49,
+        16.44,
+        96.06
+       ],
+       "zone": "sector inferior central"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        326.12,
+        373.88,
+        35.77,
+        46.67
+       ],
+       "zone": "sector central"
+      },
+      {
+       "severity": "duplicado",
+       "texts": [
+        "PUERTA P1",
+        "PUERTA P1"
+       ],
+       "box": [
+        335.14,
+        980.54,
+        8.64,
+        50.01
+       ],
+       "zone": "sector inferior central"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "NPT +0.15",
+        "ESC 1:50"
+       ],
+       "box": [
+        704.39,
+        298.67,
+        9.6,
+        91.88
+       ],
+       "zone": "sector superior derecho"
+      }
+     ]
+    },
+    {
+     "page": 4,
+     "kind": "vector",
+     "rotate": 90,
+     "modo": "girada desde 1-vectorial-A3-y-A4.pdf p2",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "Superficie cubierta total aproximada 128.40 m2",
+        "Verificar con relevamiento"
+       ],
+       "box": [
+        577.79,
+        60,
+        9.6,
+        297.13
+       ],
+       "zone": "sector central derecho"
+      }
+     ]
+    },
+    {
+     "page": 5,
+     "kind": "vector",
+     "rotate": 90,
+     "modo": "girada desde 1-vectorial-A3-y-A4.pdf p1, origen -30,-20, MediaBox 30 pt más grande",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        735.48,
+        330,
+        13.52,
+        26.35
+       ],
+       "zone": "sector superior derecho"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        537.06,
+        360,
+        16.44,
+        96.06
+       ],
+       "zone": "sector central"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        500,
+        800,
+        35.77,
+        46.67
+       ],
+       "zone": "sector inferior central"
+      },
+      {
+       "severity": "duplicado",
+       "texts": [
+        "PUERTA P1",
+        "PUERTA P1"
+       ],
+       "box": [
+        518.11,
+        190,
+        8.64,
+        50.01
+       ],
+       "zone": "sector superior central"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "NPT +0.15",
+        "ESC 1:50"
+       ],
+       "box": [
+        147.9,
+        830,
+        9.6,
+        91.88
+       ],
+       "zone": "sector inferior izquierdo"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "file": "5-cad-rotado.pdf",
+   "pages": [
+    {
+     "page": 1,
+     "kind": "vector",
+     "rotate": 90,
+     "modo": "cad desde planos-prueba.pdf p1",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "HALL DE ACCESO",
+        "VER DETALLE D-4"
+       ],
+       "box": [
+        141.14,
+        571.01,
+        71.11,
+        11.67
+       ],
+       "zone": "entre ejes A–B / 1–2"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "BAÑO",
+        "PILETA DE PATIO"
+       ],
+       "box": [
+        264.15,
+        301.11,
+        60.55,
+        8.25
+       ],
+       "zone": "entre ejes B–C / 4–5"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "ASCENSOR",
+        "1,10x1,30"
+       ],
+       "box": [
+        324.13,
+        400.91,
+        73.69,
+        7.68
+       ],
+       "zone": "entre ejes C–D / 3–4"
+      }
+     ]
+    },
+    {
+     "page": 2,
+     "kind": "vector",
+     "rotate": 270,
+     "modo": "cad desde planos-prueba.pdf p3, origen 40,25",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "NPT +6.00",
+        "VER CORTE B-B"
+       ],
+       "box": [
+        204.8,
+        575.86,
+        56.56,
+        8.23
+       ],
+       "zone": "entre ejes A–B / 1–2"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "4.00",
+        "C"
+       ],
+       "box": [
+        309.56,
+        193.99,
+        13.62,
+        9.67
+       ],
+       "zone": "ejes B–C, fuera de las filas · sector superior izquierdo"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "DORMITORIO 2",
+        "12.00 m²"
+       ],
+       "box": [
+        388.34,
+        301.69,
+        58.67,
+        10.67
+       ],
+       "zone": "entre ejes E–F / 4–5"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "PALIER",
+        "H=2,60"
+       ],
+       "box": [
+        431.36,
+        556.84,
+        50.85,
+        7.68
+       ],
+       "zone": "entre ejes F–G / 1–2"
+      }
+     ]
+    },
+    {
+     "page": 3,
+     "kind": "vector",
+     "rotate": 180,
+     "modo": "cad desde planos-prueba.pdf p4",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "SALIDA A TERRAZA",
+        "TANQUE 1000 L"
+       ],
+       "box": [
+        534.49,
+        469.79,
+        90.9,
+        9.68
+       ],
+       "zone": "entre ejes C–D / 2–3"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "15/09/2026",
+        "REV. B 02/10/2026"
+       ],
+       "box": [
+        930,
+        743.89,
+        79.93,
+        9.67
+       ],
+       "zone": "sector inferior derecho"
+      }
+     ]
+    },
+    {
+     "page": 4,
+     "kind": "vector",
+     "rotate": 0,
+     "modo": "cad desde planos-prueba.pdf p1, origen -100,-200, MediaBox 50 pt más grande",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "HALL DE ACCESO",
+        "VER DETALLE D-4"
+       ],
+       "box": [
+        141.14,
+        571.01,
+        71.11,
+        11.67
+       ],
+       "zone": "entre ejes A–B / 1–2"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "BAÑO",
+        "PILETA DE PATIO"
+       ],
+       "box": [
+        264.15,
+        301.11,
+        60.55,
+        8.25
+       ],
+       "zone": "entre ejes B–C / 4–5"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "ASCENSOR",
+        "1,10x1,30"
+       ],
+       "box": [
+        324.13,
+        400.91,
+        73.69,
+        7.68
+       ],
+       "zone": "entre ejes C–D / 3–4"
+      }
+     ]
+    },
+    {
+     "page": 5,
+     "kind": "vector",
+     "rotate": 90,
+     "modo": "cad desde 1-vectorial-A3-y-A4.pdf p1, origen 12,-35, MediaBox 20 pt más grande",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        300,
+        112.89,
+        26.35,
+        13.52
+       ],
+       "zone": "sector superior izquierdo"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        330,
+        308.39,
+        96.06,
+        16.44
+       ],
+       "zone": "sector central izquierdo"
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        770,
+        326.12,
+        46.67,
+        35.77
+       ],
+       "zone": "sector central"
+      },
+      {
+       "severity": "duplicado",
+       "texts": [
+        "PUERTA P1",
+        "PUERTA P1"
+       ],
+       "box": [
+        160,
+        335.14,
+        50.01,
+        8.64
+       ],
+       "zone": "sector central izquierdo"
+      },
+      {
+       "severity": "cercania",
+       "texts": [
+        "NPT +0.15",
+        "ESC 1:50"
+       ],
+       "box": [
+        800,
+        704.39,
+        91.88,
+        9.6
+       ],
+       "zone": "sector inferior derecho"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "file": "6-escaneado-rotado.pdf",
+   "pages": [
+    {
+     "page": 1,
+     "kind": "image",
+     "rotate": 90,
+     "modo": "cad desde 2-escaneado-solo-imagen.pdf p1",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        297.6,
+        115.6,
+        25.4,
+        10.6
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        330.2,
+        310,
+        94,
+        14
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        769.7,
+        336.2,
+        45.7,
+        9.3
+       ]
+      }
+     ]
+    },
+    {
+     "page": 2,
+     "kind": "image",
+     "rotate": 180,
+     "modo": "cad desde 2-escaneado-solo-imagen.pdf p1",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        297.6,
+        115.6,
+        25.4,
+        10.6
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        330.2,
+        310,
+        94,
+        14
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        769.7,
+        336.2,
+        45.7,
+        9.3
+       ]
+      }
+     ]
+    },
+    {
+     "page": 3,
+     "kind": "image",
+     "rotate": 270,
+     "modo": "cad desde 2-escaneado-solo-imagen.pdf p1, origen 30,15",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        297.6,
+        115.6,
+        25.4,
+        10.6
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        330.2,
+        310,
+        94,
+        14
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        769.7,
+        336.2,
+        45.7,
+        9.3
+       ]
+      }
+     ]
+    },
+    {
+     "page": 4,
+     "kind": "image",
+     "rotate": 0,
+     "modo": "cad desde 2-escaneado-solo-imagen.pdf p1, origen -80,-60, MediaBox 40 pt más grande",
+     "expected": [
+      {
+       "severity": "choque",
+       "texts": [
+        "3.50",
+        "3.25"
+       ],
+       "box": [
+        297.6,
+        115.6,
+        25.4,
+        10.6
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "LIVING",
+        "COMEDOR"
+       ],
+       "box": [
+        330.2,
+        310,
+        94,
+        14
+       ]
+      },
+      {
+       "severity": "choque",
+       "texts": [
+        "COCINA",
+        "H=2.40"
+       ],
+       "box": [
+        769.7,
+        336.2,
+        45.7,
+        9.3
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

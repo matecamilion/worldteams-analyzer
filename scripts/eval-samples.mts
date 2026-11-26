@@ -20,7 +20,10 @@ const synthetic = [
   // Las rotadas tienen su propio archivo (lo arma scripts/make-rotated-samples.mts).
   ...(JSON.parse(await readFile("samples/esperados-rotados.json", "utf8")) as { files: ExpFile[] }).files,
   // Plano real de baja resolución: subtotal aparte, no entra en "originales".
-  ...(JSON.parse(await readFile("samples/esperados-planos-reales.json", "utf8")) as { files: ExpFile[] }).files,
+  // Archivo local, no incluido en el repo (.gitignore): si falta, esas páginas no se puntúan.
+  ...(existsSync("samples/esperados-planos-reales.json")
+    ? (JSON.parse(await readFile("samples/esperados-planos-reales.json", "utf8")) as { files: ExpFile[] }).files
+    : []),
 ];
 const ROTATED = new Set(["4-vectorial-rotado.pdf", "5-cad-rotado.pdf", "6-escaneado-rotado.pdf"]);
 const REAL = new Set(["7-plano-real-limpio-control.pdf", "8-plano-real-con-errores.pdf", "9-plano-real-con-errores-x2-resolucion.pdf"]);

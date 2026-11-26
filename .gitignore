@@ -46,3 +46,10 @@ next-env.d.ts
 
 # Corrida de npm run muestras: cambia en cada ejecución.
 /bench/samples-ultima.json
+
+# Plano real de baja resolución: archivos locales, no se suben (el plano no es nuestro).
+/samples/7-plano-real-limpio-control.pdf
+/samples/8-plano-real-con-errores.pdf
+/samples/9-plano-real-con-errores-x2-resolucion.pdf
+/samples/esperados-planos-reales.json
+/bench/crudas-*/

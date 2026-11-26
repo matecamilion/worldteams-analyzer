@@ -76,11 +76,11 @@ export function findingScreenBox(f: Finding, page: Pick<PageResult, "width" | "h
 /** Grosor, número y márgenes proporcionales al lado corto de la página (A3 y A4 se ven parejos). */
 export function markStyle(size: { w: number; h: number }) {
   const s = Math.min(size.w, size.h);
-  const lineWidth = s / 420; // A4 ≈ 1,4 pt · A3 ≈ 2 pt
+  const lineWidth = s / 560; // A4 ≈ 1,1 pt · A3 ≈ 1,5 pt: visible sin tachar el renglón vecino
   return {
     lineWidth,
     halo: lineWidth * 0.6,
-    radius: s * 0.0115, // A4 ≈ 6,8 pt · A3 ≈ 9,7 pt
+    radius: s * 0.0095, // A4 ≈ 5,7 pt · A3 ≈ 8 pt
     pad: Math.max(3, lineWidth * 1.5),
     /** Lado mínimo de la caja: una zona de un par de letras igual tiene que verse. */
     minSide: s * 0.025,
@@ -140,8 +140,7 @@ function drawMark(page: PDFPage, f: NumberedFinding, result: PageResult, g: Page
   const color = COLOR[f.severity];
   const dash = f.severity === "cercania" ? [st.lineWidth * 3, st.lineWidth * 2] : undefined;
 
-  // Halo blanco debajo del borde (como la sombra de 1 px de la pantalla), para que se lea sobre líneas del plano.
-  page.drawRectangle({ x: rect.x, y: rect.y, width: rect.w, height: rect.h, borderColor: WHITE, borderWidth: st.lineWidth + 2 * st.halo, borderOpacity: 0.9 });
+  // Sin halo blanco (a diferencia de la pantalla): en el PDF taparía para siempre el texto vecino.
   page.drawRectangle({
     x: rect.x,
     y: rect.y,
@@ -274,7 +273,7 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
     para("Todas las páginas se verificaron.", 9.5, regular, GRAY);
   }
   if (input.findings.some((f) => f.source === "vision")) {
-    para(`Los textos de páginas escaneadas los leyó la IA: pueden tener errores (${AI_TEXT_NOTE}).`, 9.5, regular, GRAY);
+    para(`Los textos de las páginas escaneadas los leyó la IA y pueden tener errores: van rotulados "${AI_TEXT_NOTE}".`, 9.5, regular, GRAY);
   }
 
   y -= 14;

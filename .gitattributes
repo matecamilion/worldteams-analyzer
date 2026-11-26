@@ -1,0 +1,4 @@
+# Los PDF se guardan byte a byte: convertir saltos de línea rompe sus tablas de referencias.
+*.pdf binary
+*.png binary
+*.mp4 binary

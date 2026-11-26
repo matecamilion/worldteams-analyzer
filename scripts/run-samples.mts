@@ -23,7 +23,16 @@ const imageOpts = {
   ...(process.env.SALTEAR ? { skipBlankTiles: process.env.SALTEAR === "1" } : {}),
 };
 
-export const FILES = ["planos-prueba.pdf", "1-vectorial-A3-y-A4.pdf", "2-escaneado-solo-imagen.pdf", "3-mixto-vector-escaneado-limpio.pdf"];
+export const FILES = [
+  "planos-prueba.pdf",
+  "1-vectorial-A3-y-A4.pdf",
+  "2-escaneado-solo-imagen.pdf",
+  "3-mixto-vector-escaneado-limpio.pdf",
+  // Con /Rotate y caja de página corrida (scripts/make-rotated-samples.mts).
+  "4-vectorial-rotado.pdf",
+  "5-cad-rotado.pdf",
+  "6-escaneado-rotado.pdf",
+];
 
 type Out = { file: string; pages: (PageResult & Partial<ImagePageResult> & { costUsd?: { peak: number; offPeak: number } | null })[] };
 const out: Out[] = [];

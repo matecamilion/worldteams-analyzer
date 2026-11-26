@@ -150,16 +150,24 @@ recién al apretar el botón); el PDF marcado no pasa por el servidor.
 Cada página se analiza por separado (`POST /api/analyze?page=N`), y una página que falla queda
 marcada como **no verificada**, nunca se omite.
 
-- **Páginas con texto (vectoriales):** se leen los textos del PDF con pdf.js y se arma la caja de
-  tinta de cada uno (con rotación). Hay *choque* si las cajas se pisan y *cercanía* si quedan a
+Todo se mide sobre la hoja **tal como se ve**: en pt, con origen arriba a la izquierda de la caja
+visible (CropBox ∩ MediaBox) y ya girada según `/Rotate`. Es el mismo espacio en que pdf.js
+dibuja la página (`getViewport({ scale: 1 })`), así que las cajas caen sobre el texto en pantalla
+y en el PDF con marcas, y "sector superior izquierdo" o "entre ejes B–C" se refieren a lo que se
+ve. Los planos de CAD suelen traer `/Rotate 90` con el contenido acostado en el PDF.
+
+- **Páginas con texto (vectoriales):** se leen los textos del PDF con pdf.js, se llevan a la hoja
+  que se ve con la matriz de pantalla de pdf.js y se arma la caja de tinta de cada uno (con la
+  rotación del texto). Hay *choque* si las cajas se pisan y *cercanía* si quedan a
   2,5 pt o menos. No usa IA, y los resultados se marcan como "Texto del PDF".
   - pdf.js 6 junta en un solo texto dos rótulos del mismo renglón si están a menos de ~0,1 × el
     cuerpo (por ejemplo "NPT +0.15" y "ESC 1:50" a 1 pt), y ya no tiene opción para evitarlo.
     `lib/detector/runs.ts` reconstruye cada operación de texto del PDF y separa esos ítems sólo si
     vienen de bloques de texto distintos (`BT…ET`) y los textos y el largo coinciden con lo que dio
     pdf.js. En los 4 PDFs de muestra eso cambia únicamente ese caso.
-- **Páginas escaneadas (sin texto):** se extrae la imagen embebida y se divide en mosaicos que se
-  envían a un modelo de visión (DeepSeek por defecto), que devuelve cajas normalizadas 0–1:
+- **Páginas escaneadas (sin texto):** se extrae la imagen embebida, se gira para que quede como se
+  ve en pantalla (con `/Rotate 90` la IA ve el plano derecho, no acostado) y se divide en mosaicos
+  que se envían a un modelo de visión (DeepSeek por defecto), que devuelve cajas normalizadas 0–1:
   1. Dos pasadas independientes: grilla de 2×2 mosaicos de ~1400 px y grilla *corrida* de 3×3,
      para que las uniones caigan en otro lugar. Se unen por posición (tolerancia 25 pt).
   2. **Ajuste a tinta:** la caja del modelo se usa como pista y se ajusta al renglón de texto
@@ -169,8 +177,8 @@ marcada como **no verificada**, nunca se omite.
      sin encajar en un renglón.
   4. Los resultados se marcan "Detectado por IA" con su confianza, y el texto se rotula
      "texto leído por IA (aproximado)": el modelo puede leer mal ("H=0.40" por "H=2.40"). Lo
-     exacto es la ubicación, no la transcripción. La imagen no se endereza: las cajas se dibujan
-     sobre la misma imagen.
+     exacto es la ubicación, no la transcripción. Una imagen torcida unos grados no se endereza:
+     las cajas se dibujan sobre la misma imagen.
   5. No se mandan a la IA los mosaicos sin texto: se cuentan manchas de tinta con alto de letra
      y se saltea un mosaico sin ninguna (o con 1–2 en la pasada corrida, porque la primera ya
      cubre toda la página).
@@ -228,7 +236,7 @@ marcada como **no verificada**, nunca se omite.
 
 ### Set de muestras y `npm run muestras`
 
-`samples/` tiene 4 PDFs:
+`samples/` tiene 4 PDFs, más 3 con páginas rotadas:
 
 | Archivo | Páginas | Qué prueba |
 |---|---|---|
@@ -236,6 +244,13 @@ marcada como **no verificada**, nunca se omite.
 | `1-vectorial-A3-y-A4.pdf` | 2 vectoriales (A3 y A4) | Choques, un duplicado y una cercanía a 1 pt |
 | `2-escaneado-solo-imagen.pdf` | 1 escaneada | Los mismos choques, sólo como imagen |
 | `3-mixto-vector-escaneado-limpio.pdf` | vectorial, escaneada, vectorial limpia | Mezcla de tipos y una página sin hallazgos |
+| `4-vectorial-rotado.pdf` | 5 vectoriales | Páginas de la muestra 1 con `/Rotate` 90, 180 y 270 (se ven giradas) y una con MediaBox/CropBox de origen distinto de cero |
+| `5-cad-rotado.pdf` | 5 vectoriales | Como exporta un CAD: `/Rotate` 90/180/270 con el contenido girado al revés, y cajas corridas. Se ven igual que el original, con sus ejes |
+| `6-escaneado-rotado.pdf` | 4 escaneadas | La escaneada de la muestra 2 del mismo modo (90, 180, 270 y origen corrido) |
+
+- Las 3 rotadas y `samples/esperados-rotados.json` las arma `scripts/make-rotated-samples.mts`:
+  mismos hallazgos que la página original, con la caja donde se ve y, en vectoriales, la zona
+  que se ve. `tests/rotation.test.mts` y `tests/rotation-image.test.mts` las cubren sin IA.
 
 - Lo esperado está en `samples/expected.json` (plano de prueba) y en `samples/esperados.json`
   (los 3 sintéticos). Si este último no está, se usa `samples/esperados-provisorio.json`, armado
@@ -243,8 +258,10 @@ marcada como **no verificada**, nunca se omite.
 - `npm run muestras` analiza todo y muestra, por página: esperado, detectado, de más, tiempo y
   costo, con el detalle de lo que falta y lo que sobra. Las páginas escaneadas usan la IA
   (alrededor de 1 centavo de dólar por página).
-- Criterio: en páginas vectoriales, mismo tipo y mismos textos; en escaneadas, mismo tipo y
-  posición (±10 pt), porque los textos que lee la IA pueden estar mal.
+- Criterio: en páginas vectoriales, mismo tipo y mismos textos (en las rotadas, además, la caja
+  con IoU ≥ 0,5); en escaneadas, mismo tipo y posición (±10 pt), porque los textos que lee la IA
+  pueden estar mal. El total se informa también por separado para los 4 PDFs originales y los
+  rotados.
 - La corrida queda en `bench/samples-ultima.json`.
 
 ### Consumo de la IA
@@ -312,10 +329,12 @@ configuración, sobre las 3 páginas escaneadas de las muestras. Costo con tarif
   confidenciales. En el plan pago eso no ocurre. Con DeepSeek, los planos también salen a un
   servicio externo.
 - El PDF se envía al servidor en cada página (máximo 4 MB, por el límite de 4,5 MB de Vercel).
-- **Páginas rotadas o con caja de página corrida:** el detector calcula las cajas sin tener en
-  cuenta `/Rotate` ni el origen de la MediaBox/CropBox (en los planos de prueba no aparecen). En
-  esas páginas las marcas, en pantalla y en el PDF descargado, pueden quedar corridas o giradas
-  respecto del texto. La conversión al PDF sí las contempla; lo que falta es el detector.
+- **Páginas rotadas:** `/Rotate` y el origen de la MediaBox/CropBox se tienen en cuenta (ver
+  "Cómo detecta"), pero sólo se probó con PDFs armados para eso (`samples/*-rotado.pdf`), no con
+  planos reales de un CAD. Si una página escaneada se ve girada en pantalla (no "a lo CAD"), la
+  IA recibe el texto de costado, como lo ve una persona; es esperable que acierte menos (no se midió).
+- **Imágenes torcidas:** una imagen escaneada pegada con un giro que no es múltiplo de 90° se
+  ubica por su envolvente y no se endereza: las cajas pueden quedar algo corridas.
 
 ## Scripts de medición (`scripts/`)
 

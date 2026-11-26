@@ -43,3 +43,6 @@ next-env.d.ts
 
 # copiado en postinstall
 /public/pdf.worker.min.mjs
+
+# Corrida de npm run muestras: cambia en cada ejecución.
+/bench/samples-ultima.json

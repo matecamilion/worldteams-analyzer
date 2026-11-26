@@ -216,8 +216,9 @@ export async function analyzeImagePage(
   const opts = { ...DEFAULT_IMAGE_OPTIONS, ...options };
   const started = Date.now();
   const deadline = started + opts.deadlineMs;
-  const [x0, y0, x1, y1] = page.view;
-  const pageSize = { width: x1 - x0, height: y1 - y0 };
+  // Tamaño de la hoja como se ve (con /Rotate 90 el ancho es el alto del PDF).
+  const viewport = page.getViewport({ scale: 1 });
+  const pageSize = { width: viewport.width, height: viewport.height };
   const base = {
     page: pageNumber,
     kind: "image" as const,
@@ -304,8 +305,8 @@ export async function analyzeImagePage(
       // Mosaico normalizado → px de imagen.
       const px = { x: r.tile.x + b.x * r.tile.w, y: r.tile.y + b.y * r.tile.h, w: b.w * r.tile.w, h: b.h * r.tile.h };
       if (touchesInnerEdge(px, r.tile, img, opts.edgeMargin)) continue;
-      // px de imagen → pt de página según dónde está pintada la imagen. No enderezamos:
-      // la caja se dibuja sobre la misma imagen, torcida como esté.
+      // px de imagen → pt de la hoja según dónde se ve la imagen (ya girada como en pantalla).
+      // No enderezamos una imagen torcida unos grados: la caja se dibuja sobre ella tal cual.
       candidates.push({
         box: { x: img.placement.x + px.x * sx, y: img.placement.y + px.y * sy, w: px.w * sx, h: px.h * sy },
         texts: b.texts,

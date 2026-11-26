@@ -1,0 +1,64 @@
+{
+  "nota": "PROVISORIO: armado por Claude mirando los PDFs, mientras llega el esperados.json del usuario. Suma 13 hallazgos, el mismo total que informó el usuario (11/13). Páginas vectoriales: se compara por tipo y textos (exactos). Páginas escaneadas: por tipo y posición (la caja es la tinta del renglón medida en la imagen, ±10 pt), porque los textos que lee la IA pueden estar mal.",
+  "files": [
+    {
+      "file": "1-vectorial-A3-y-A4.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "kind": "vector",
+          "expected": [
+            { "severity": "choque", "texts": ["3.50", "3.25"] },
+            { "severity": "choque", "texts": ["LIVING", "COMEDOR"] },
+            { "severity": "choque", "texts": ["COCINA", "H=2.40"] },
+            { "severity": "duplicado", "texts": ["PUERTA P1", "PUERTA P1"] },
+            { "severity": "cercania", "texts": ["NPT +0.15", "ESC 1:50"] }
+          ]
+        },
+        {
+          "page": 2,
+          "kind": "vector",
+          "expected": [
+            { "severity": "choque", "texts": ["Superficie cubierta total aproximada 128.40 m2", "Verificar con relevamiento"] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "2-escaneado-solo-imagen.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "kind": "image",
+          "expected": [
+            { "severity": "choque", "texts": ["3.50", "3.25"], "box": [297.6, 115.6, 25.4, 10.6] },
+            { "severity": "choque", "texts": ["LIVING", "COMEDOR"], "box": [330.2, 310.0, 94.0, 14.0] },
+            { "severity": "choque", "texts": ["COCINA", "H=2.40"], "box": [769.7, 336.2, 45.7, 9.3] }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "3-mixto-vector-escaneado-limpio.pdf",
+      "pages": [
+        {
+          "page": 1,
+          "kind": "vector",
+          "expected": [
+            { "severity": "choque", "texts": ["3.50", "3.25"] },
+            { "severity": "cercania", "texts": ["NPT +0.15", "ESC 1:50"] }
+          ]
+        },
+        {
+          "page": 2,
+          "kind": "image",
+          "expected": [
+            { "severity": "choque", "texts": ["LIVING", "COMEDOR"], "box": [331.5, 306.6, 94.4, 14.0] },
+            { "severity": "choque", "texts": ["COCINA", "H=2.40"], "box": [771.0, 339.2, 45.3, 8.9] }
+          ]
+        },
+        { "page": 3, "kind": "vector", "expected": [] }
+      ]
+    }
+  ]
+}

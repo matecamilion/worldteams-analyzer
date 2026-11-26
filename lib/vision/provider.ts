@@ -8,7 +8,14 @@ export type VisionBox = {
   confidence: number;
 };
 
-export type VisionUsage = { inputTokens: number; outputTokens: number };
+export type VisionUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  /** Parte de la entrada servida desde el caché del proveedor (más barata). */
+  cachedInputTokens?: number;
+  /** Parte de la salida que es razonamiento interno del modelo. */
+  reasoningTokens?: number;
+};
 
 export type VisionImage = {
   /** JPEG del mosaico. */

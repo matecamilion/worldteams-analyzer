@@ -1,6 +1,7 @@
 import type { PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { detectVectorOverlaps } from "./overlap";
 import { DEFAULT_OPTIONS, type DetectorOptions, type PageKind, type PageResult } from "./types";
+import { extractOpRuns, splitCombinedItems } from "./runs";
 import { buildTextBoxes, type RawTextItem } from "./vector";
 
 export type PageInfo = { kind: PageKind; width: number; height: number; items: RawTextItem[] };
@@ -16,7 +17,16 @@ export async function inspectPage(page: PDFPageProxy): Promise<PageInfo> {
   const content = await page.getTextContent();
   const items = (content.items as RawTextItem[]).filter((i) => typeof i.str === "string" && i.str.trim());
   const chars = items.reduce((n, i) => n + i.str.trim().length, 0);
-  if (chars >= MIN_TEXT_CHARS) return { kind: "vector", width, height, items };
+  if (chars >= MIN_TEXT_CHARS) {
+    // pdfjs combina rótulos distintos muy juntos en un solo ítem: se separan desde las operaciones del PDF.
+    let split: RawTextItem[] = items;
+    try {
+      split = splitCombinedItems(items, await extractOpRuns(page));
+    } catch {
+      // Si la lista de operaciones no se puede leer, se sigue con lo que entregó pdfjs.
+    }
+    return { kind: "vector", width, height, items: split };
+  }
 
   const ops = await page.getOperatorList();
   const { OPS } = await import("pdfjs-dist/legacy/build/pdf.mjs");

@@ -1,0 +1,1083 @@
+[
+  {
+    "file": "planos-prueba.pdf",
+    "pages": [
+      {
+        "page": 1,
+        "kind": "vector",
+        "width": 1190.551,
+        "height": 841.8898,
+        "textCount": 71,
+        "findings": [
+          {
+            "id": "p1-choque-1",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 141.144,
+              "y": 571.0148,
+              "w": 71.11199999999997,
+              "h": 11.669999999999959
+            },
+            "boxNorm": {
+              "x": 0.11855351009742549,
+              "y": 0.6782536146654824,
+              "w": 0.059730326546279806,
+              "h": 0.013861671681970679
+            },
+            "texts": [
+              "HALL DE ACCESO",
+              "VER DETALLE D-4"
+            ],
+            "zone": "entre ejes A–B / 1–2",
+            "confidence": 0.95,
+            "overlapRatio": 0.406,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p1-choque-2",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 264.149,
+              "y": 301.11480000000006,
+              "w": 60.54800000000006,
+              "h": 8.254999999999939
+            },
+            "boxNorm": {
+              "x": 0.22187121761268525,
+              "y": 0.35766533814758183,
+              "w": 0.0508571241383192,
+              "h": 0.009805321314024637
+            },
+            "texts": [
+              "BAÑO",
+              "PILETA DE PATIO"
+            ],
+            "zone": "entre ejes B–C / 4–5",
+            "confidence": 0.99,
+            "overlapRatio": 0.55,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p1-cercania-3",
+            "page": 1,
+            "severity": "cercania",
+            "box": {
+              "x": 324.132,
+              "y": 400.9148,
+              "w": 73.68799999999999,
+              "h": 7.680000000000007
+            },
+            "boxNorm": {
+              "x": 0.27225377157299435,
+              "y": 0.4762081688125928,
+              "w": 0.0618940305791184,
+              "h": 0.009122334063199252
+            },
+            "texts": [
+              "ASCENSOR",
+              "1,10x1,30"
+            ],
+            "zone": "entre ejes C–D / 3–4",
+            "confidence": 0.5,
+            "overlapRatio": 0,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 288
+      },
+      {
+        "page": 2,
+        "kind": "vector",
+        "width": 1190.551,
+        "height": 841.8898,
+        "textCount": 83,
+        "findings": [
+          {
+            "id": "p2-cercania-1",
+            "page": 2,
+            "severity": "cercania",
+            "box": {
+              "x": 161.539,
+              "y": 358.38980000000004,
+              "w": 89.01000000000002,
+              "h": 7.680000000000007
+            },
+            "boxNorm": {
+              "x": 0.1356842336027604,
+              "y": 0.42569680734937043,
+              "w": 0.07476370184897584,
+              "h": 0.009122334063199252
+            },
+            "texts": [
+              "DORMITORIO 1",
+              "PLACARD"
+            ],
+            "zone": "entre ejes A–B / 4–5",
+            "confidence": 0.5,
+            "overlapRatio": 0,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p2-cercania-2",
+            "page": 2,
+            "severity": "cercania",
+            "box": {
+              "x": 345.199,
+              "y": 585.1898000000001,
+              "w": 53.55599999999998,
+              "h": 7.67999999999995
+            },
+            "boxNorm": {
+              "x": 0.28994893960863505,
+              "y": 0.6950907351532233,
+              "w": 0.044984213192043,
+              "h": 0.009122334063199185
+            },
+            "texts": [
+              "COCINA",
+              "ANAFE"
+            ],
+            "zone": "entre ejes D–E / 1–2",
+            "confidence": 0.5,
+            "overlapRatio": 0,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 18
+      },
+      {
+        "page": 3,
+        "kind": "vector",
+        "width": 1190.551,
+        "height": 841.8898,
+        "textCount": 85,
+        "findings": [
+          {
+            "id": "p3-choque-1",
+            "page": 3,
+            "severity": "choque",
+            "box": {
+              "x": 204.801,
+              "y": 575.8648000000001,
+              "w": 56.563499999999976,
+              "h": 8.2349999999999
+            },
+            "boxNorm": {
+              "x": 0.17202203013562628,
+              "y": 0.6840144636507058,
+              "w": 0.047510354449326386,
+              "h": 0.009781565235735009
+            },
+            "texts": [
+              "NPT +6.00",
+              "VER CORTE B-B"
+            ],
+            "zone": "entre ejes A–B / 1–2",
+            "confidence": 0.99,
+            "overlapRatio": 0.518,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p3-choque-2",
+            "page": 3,
+            "severity": "choque",
+            "box": {
+              "x": 309.562,
+              "y": 193.98980000000006,
+              "w": 13.622000000000014,
+              "h": 9.66999999999993
+            },
+            "boxNorm": {
+              "x": 0.26001574061086,
+              "y": 0.23042184380901165,
+              "w": 0.011441760999738789,
+              "h": 0.011486063853012509
+            },
+            "texts": [
+              "4.00",
+              "C"
+            ],
+            "zone": "ejes B–C, fuera de las filas · sector superior izquierdo",
+            "confidence": 0.99,
+            "overlapRatio": 0.616,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p3-choque-3",
+            "page": 3,
+            "severity": "choque",
+            "box": {
+              "x": 388.339,
+              "y": 301.6898,
+              "w": 58.67199999999997,
+              "h": 10.670000000000073
+            },
+            "boxNorm": {
+              "x": 0.3261842625809394,
+              "y": 0.3583483253984072,
+              "w": 0.04928138315788234,
+              "h": 0.012673867767491746
+            },
+            "texts": [
+              "DORMITORIO 2",
+              "12.00 m²"
+            ],
+            "zone": "entre ejes E–F / 4–5",
+            "confidence": 0.99,
+            "overlapRatio": 0.555,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p3-cercania-4",
+            "page": 3,
+            "severity": "cercania",
+            "box": {
+              "x": 431.357,
+              "y": 556.8398,
+              "w": 50.847999999999956,
+              "h": 7.67999999999995
+            },
+            "boxNorm": {
+              "x": 0.3623171119926824,
+              "y": 0.6614164941777415,
+              "w": 0.04270963612646578,
+              "h": 0.009122334063199185
+            },
+            "texts": [
+              "PALIER",
+              "H=2,60"
+            ],
+            "zone": "entre ejes F–G / 1–2",
+            "confidence": 0.5,
+            "overlapRatio": 0,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 16
+      },
+      {
+        "page": 4,
+        "kind": "vector",
+        "width": 1190.551,
+        "height": 841.8898,
+        "textCount": 52,
+        "findings": [
+          {
+            "id": "p4-choque-1",
+            "page": 4,
+            "severity": "choque",
+            "box": {
+              "x": 534.492,
+              "y": 469.7898,
+              "w": 90.90400000000011,
+              "h": 9.680000000000007
+            },
+            "boxNorm": {
+              "x": 0.44894506829190856,
+              "y": 0.5580181634223387,
+              "w": 0.0763545618793316,
+              "h": 0.011497941892157389
+            },
+            "texts": [
+              "SALIDA A TERRAZA",
+              "TANQUE 1000 L"
+            ],
+            "zone": "entre ejes C–D / 2–3",
+            "confidence": 0.99,
+            "overlapRatio": 0.586,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p4-choque-2",
+            "page": 4,
+            "severity": "choque",
+            "box": {
+              "x": 930,
+              "y": 743.8898,
+              "w": 79.92700000000002,
+              "h": 9.670000000000073
+            },
+            "boxNorm": {
+              "x": 0.78115091247666,
+              "y": 0.8835952163810513,
+              "w": 0.06713446127045379,
+              "h": 0.011486063853012677
+            },
+            "texts": [
+              "15/09/2026",
+              "REV. B 02/10/2026"
+            ],
+            "zone": "sector inferior derecho",
+            "confidence": 0.9,
+            "overlapRatio": 0.308,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 9
+      },
+      {
+        "page": 5,
+        "kind": "vector",
+        "width": 1190.551,
+        "height": 841.8898,
+        "textCount": 46,
+        "findings": [
+          {
+            "id": "p5-cercania-1",
+            "page": 5,
+            "severity": "cercania",
+            "box": {
+              "x": 587.286,
+              "y": 528.4898000000001,
+              "w": 63.33800000000008,
+              "h": 7.67999999999995
+            },
+            "boxNorm": {
+              "x": 0.4932892417040513,
+              "y": 0.62774225320226,
+              "w": 0.053200576875749195,
+              "h": 0.009122334063199185
+            },
+            "texts": [
+              "RAMPA",
+              "PEND. 15%"
+            ],
+            "zone": "entre ejes C–D / 1–2",
+            "confidence": 0.5,
+            "overlapRatio": 0,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 10
+      },
+      {
+        "page": 6,
+        "kind": "image",
+        "width": 1190.5512,
+        "height": 841.8898,
+        "textCount": 0,
+        "findings": [
+          {
+            "id": "p6-ia-1",
+            "page": 6,
+            "severity": "choque",
+            "box": {
+              "x": 273.04603688029016,
+              "y": 303.8543900000001,
+              "w": 49.42661124546554,
+              "h": 7.677919999999999
+            },
+            "boxNorm": {
+              "x": 0.22934422045880104,
+              "y": 0.36091943387364955,
+              "w": 0.041515737622594924,
+              "h": 0.009119863431057128
+            },
+            "texts": [
+              "BAÑO",
+              "VESTIDOR"
+            ],
+            "zone": "sector central izquierdo",
+            "confidence": 0.97,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "mosaicos",
+              "corrida"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 268.7559989721886,
+              "y": 306.8660541200001,
+              "w": 62.27273146916567,
+              "h": 19.233189600000014
+            }
+          },
+          {
+            "id": "p6-ia-2",
+            "page": 6,
+            "severity": "choque",
+            "box": {
+              "x": 347.9057587666263,
+              "y": 588.4173000000001,
+              "w": 51.82596130592503,
+              "h": 8.637659999999999
+            },
+            "boxNorm": {
+              "x": 0.29222242501341084,
+              "y": 0.6989243722872044,
+              "w": 0.043531064691652924,
+              "h": 0.010259846359939267
+            },
+            "texts": [
+              "COCINA",
+              "LAVADERO"
+            ],
+            "zone": "sector inferior izquierdo",
+            "confidence": 0.93,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "corrida",
+              "mosaicos"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 343.4333702539298,
+              "y": 581.9678472,
+              "w": 62.00880296251511,
+              "h": 18.043111999999997
+            }
+          },
+          {
+            "id": "p6-ia-3",
+            "page": 6,
+            "severity": "choque",
+            "box": {
+              "x": 185.70969467956468,
+              "y": 560.5848400000001,
+              "w": 70.06102176541717,
+              "h": 7.198049999999999
+            },
+            "boxNorm": {
+              "x": 0.15598631514508965,
+              "y": 0.6658648673496224,
+              "w": 0.05884755041649377,
+              "h": 0.008549871966616057
+            },
+            "texts": [
+              "ESTAR COMEDOR",
+              "ESTAR"
+            ],
+            "zone": "sector inferior izquierdo",
+            "confidence": 0.7,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "corrida",
+              "mosaicos"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 181.25650096735188,
+              "y": 556.7074904000001,
+              "w": 95.39815840386937,
+              "h": 18.043112000000008
+            }
+          }
+        ],
+        "usage": {
+          "inputTokens": 13152,
+          "outputTokens": 10167,
+          "cachedInputTokens": 10752,
+          "reasoningTokens": 9635,
+          "calls": 12
+        },
+        "tiles": 13,
+        "byPass": {
+          "mosaicos": {
+            "tiles": 4,
+            "skipped": 0,
+            "apiCalls": 5,
+            "failed": 0,
+            "inputTokens": 5360,
+            "outputTokens": 3221,
+            "cachedInputTokens": 4608,
+            "reasoningTokens": 3077
+          },
+          "corrida": {
+            "tiles": 9,
+            "skipped": 1,
+            "apiCalls": 8,
+            "failed": 0,
+            "inputTokens": 7792,
+            "outputTokens": 6946,
+            "cachedInputTokens": 6144,
+            "reasoningTokens": 6558
+          }
+        },
+        "status": "ok",
+        "notes": [
+          "pasada mosaicos: mosaicos de ~1400px, solape 250px",
+          "pasada corrida: mosaicos de ~1400px, solape 250px"
+        ],
+        "ms": 33581,
+        "costUsd": {
+          "peak": 0.012984912,
+          "offPeak": 0.006492456
+        }
+      }
+    ]
+  },
+  {
+    "file": "1-vectorial-A3-y-A4.pdf",
+    "pages": [
+      {
+        "page": 1,
+        "kind": "vector",
+        "width": 1190.55,
+        "height": 841.89,
+        "textCount": 32,
+        "findings": [
+          {
+            "id": "p1-choque-1",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 300,
+              "y": 112.88999999999999,
+              "w": 26.351999999999975,
+              "h": 13.519999999999996
+            },
+            "boxNorm": {
+              "x": 0.25198437696862797,
+              "y": 0.13409115205074296,
+              "w": 0.02213430767292426,
+              "h": 0.016059105108743418
+            },
+            "texts": [
+              "3.50",
+              "3.25"
+            ],
+            "zone": "sector superior izquierdo",
+            "confidence": 0.99,
+            "overlapRatio": 0.72,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p1-choque-2",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 330,
+              "y": 308.39,
+              "w": 96.06099999999998,
+              "h": 16.439999999999998
+            },
+            "boxNorm": {
+              "x": 0.2771828146654908,
+              "y": 0.3663067621660787,
+              "w": 0.08068623745327788,
+              "h": 0.01952749171506966
+            },
+            "texts": [
+              "LIVING",
+              "COMEDOR"
+            ],
+            "zone": "sector central izquierdo",
+            "confidence": 0.94,
+            "overlapRatio": 0.388,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p1-choque-3",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 770,
+              "y": 326.118,
+              "w": 46.668000000000006,
+              "h": 35.77199999999999
+            },
+            "boxNorm": {
+              "x": 0.6467599008861451,
+              "y": 0.3873641449595553,
+              "w": 0.03919868968123977,
+              "h": 0.042490111534761066
+            },
+            "texts": [
+              "COCINA",
+              "H=2.40"
+            ],
+            "zone": "sector central",
+            "confidence": 0.91,
+            "overlapRatio": 0.322,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p1-duplicado-4",
+            "page": 1,
+            "severity": "duplicado",
+            "box": {
+              "x": 160,
+              "y": 335.14,
+              "w": 50.013000000000005,
+              "h": 8.639999999999986
+            },
+            "boxNorm": {
+              "x": 0.13439166771660158,
+              "y": 0.3980805093301975,
+              "w": 0.04200831548443997,
+              "h": 0.01026262338310229
+            },
+            "texts": [
+              "PUERTA P1",
+              "PUERTA P1"
+            ],
+            "zone": "sector central izquierdo",
+            "confidence": 0.9,
+            "overlapRatio": 1,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p1-cercania-5",
+            "page": 1,
+            "severity": "cercania",
+            "box": {
+              "x": 800,
+              "y": 704.39,
+              "w": 91.8800170898437,
+              "h": 9.600000000000023
+            },
+            "boxNorm": {
+              "x": 0.6719583385830079,
+              "y": 0.8366770005582677,
+              "w": 0.07717442954083718,
+              "h": 0.0114029148701137
+            },
+            "texts": [
+              "NPT +0.15",
+              "ESC 1:50"
+            ],
+            "zone": "sector inferior derecho",
+            "confidence": 0.5,
+            "overlapRatio": 0,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 19
+      },
+      {
+        "page": 2,
+        "kind": "vector",
+        "width": 595.28,
+        "height": 841.89,
+        "textCount": 21,
+        "findings": [
+          {
+            "id": "p2-choque-1",
+            "page": 2,
+            "severity": "choque",
+            "box": {
+              "x": 60,
+              "y": 254.5,
+              "w": 297.12999999999994,
+              "h": 9.600000000000023
+            },
+            "boxNorm": {
+              "x": 0.10079290417954577,
+              "y": 0.3022960244212427,
+              "w": 0.49914326031447376,
+              "h": 0.0114029148701137
+            },
+            "texts": [
+              "Superficie cubierta total aproximada 128.40 m2",
+              "Verificar con relevamiento"
+            ],
+            "zone": "sector superior central",
+            "confidence": 0.87,
+            "overlapRatio": 0.242,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 7
+      }
+    ]
+  },
+  {
+    "file": "2-escaneado-solo-imagen.pdf",
+    "pages": [
+      {
+        "page": 1,
+        "kind": "image",
+        "width": 1190.55,
+        "height": 841.89,
+        "textCount": 0,
+        "findings": [
+          {
+            "id": "p1-ia-1",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 330.2379089615932,
+              "y": 309.5682042253521,
+              "w": 93.99078947368422,
+              "h": 14.398521126760562
+            },
+            "boxNorm": {
+              "x": 0.2773826458036984,
+              "y": 0.3677062374245472,
+              "w": 0.07894736842105264,
+              "h": 0.017102615694164987
+            },
+            "texts": [
+              "LIVING",
+              "COMEDOR"
+            ],
+            "zone": "sector central izquierdo",
+            "confidence": 0.97,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "corrida",
+              "mosaicos"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 321.8909341216216,
+              "y": 281.1946478873239,
+              "w": 107.51149155405403,
+              "h": 44.84715845070423
+            }
+          },
+          {
+            "id": "p1-ia-2",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 769.7083570412518,
+              "y": 336.24781690140844,
+              "w": 45.72524893314367,
+              "h": 9.31669014084507
+            },
+            "boxNorm": {
+              "x": 0.6465149359886203,
+              "y": 0.3993963782696177,
+              "w": 0.03840682788051209,
+              "h": 0.011066398390342052
+            },
+            "texts": [
+              "COCINA",
+              "0.40"
+            ],
+            "zone": "sector central",
+            "confidence": 0.97,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "corrida",
+              "mosaicos"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 761.1475743243243,
+              "y": 302.28424647887323,
+              "w": 56.58499555476529,
+              "h": 38.66426408450703
+            }
+          },
+          {
+            "id": "p1-ia-3",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 297.6375,
+              "y": 115.61165492957745,
+              "w": 25.402916073968704,
+              "h": 10.587147887323942
+            },
+            "boxNorm": {
+              "x": 0.25,
+              "y": 0.13732394366197181,
+              "w": 0.021337126600284494,
+              "h": 0.012575452716297786
+            },
+            "texts": [
+              "3.55",
+              "3.50"
+            ],
+            "zone": "sector superior izquierdo",
+            "confidence": 0.7,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "corrida",
+              "mosaicos"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 294.24197688477955,
+              "y": 108.96292605633802,
+              "w": 41.49566340682787,
+              "h": 17.57466549295774
+            }
+          }
+        ],
+        "usage": {
+          "inputTokens": 18504,
+          "outputTokens": 7825,
+          "cachedInputTokens": 14592,
+          "reasoningTokens": 7244,
+          "calls": 17
+        },
+        "tiles": 18,
+        "byPass": {
+          "mosaicos": {
+            "tiles": 6,
+            "skipped": 0,
+            "apiCalls": 6,
+            "failed": 0,
+            "inputTokens": 7680,
+            "outputTokens": 2408,
+            "cachedInputTokens": 6144,
+            "reasoningTokens": 2209
+          },
+          "corrida": {
+            "tiles": 12,
+            "skipped": 1,
+            "apiCalls": 11,
+            "failed": 0,
+            "inputTokens": 10824,
+            "outputTokens": 5417,
+            "cachedInputTokens": 8448,
+            "reasoningTokens": 5035
+          }
+        },
+        "status": "ok",
+        "notes": [
+          "pasada mosaicos: mosaicos de ~1400px, solape 250px",
+          "pasada corrida: mosaicos de ~1400px, solape 250px"
+        ],
+        "ms": 17251,
+        "costUsd": {
+          "peak": 0.010651152,
+          "offPeak": 0.005325576
+        }
+      }
+    ]
+  },
+  {
+    "file": "3-mixto-vector-escaneado-limpio.pdf",
+    "pages": [
+      {
+        "page": 1,
+        "kind": "vector",
+        "width": 1190.55,
+        "height": 841.89,
+        "textCount": 26,
+        "findings": [
+          {
+            "id": "p1-choque-1",
+            "page": 1,
+            "severity": "choque",
+            "box": {
+              "x": 300,
+              "y": 112.88999999999999,
+              "w": 26.351999999999975,
+              "h": 13.519999999999996
+            },
+            "boxNorm": {
+              "x": 0.25198437696862797,
+              "y": 0.13409115205074296,
+              "w": 0.02213430767292426,
+              "h": 0.016059105108743418
+            },
+            "texts": [
+              "3.50",
+              "3.25"
+            ],
+            "zone": "sector superior izquierdo",
+            "confidence": 0.99,
+            "overlapRatio": 0.72,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          },
+          {
+            "id": "p1-cercania-2",
+            "page": 1,
+            "severity": "cercania",
+            "box": {
+              "x": 800,
+              "y": 704.39,
+              "w": 91.8800170898437,
+              "h": 9.600000000000023
+            },
+            "boxNorm": {
+              "x": 0.6719583385830079,
+              "y": 0.8366770005582677,
+              "w": 0.07717442954083718,
+              "h": 0.0114029148701137
+            },
+            "texts": [
+              "NPT +0.15",
+              "ESC 1:50"
+            ],
+            "zone": "sector inferior derecho",
+            "confidence": 0.5,
+            "overlapRatio": 0,
+            "source": "vector",
+            "originLabel": "Texto del PDF"
+          }
+        ],
+        "status": "ok",
+        "ms": 15
+      },
+      {
+        "page": 2,
+        "kind": "image",
+        "width": 1190.55,
+        "height": 841.89,
+        "textCount": 0,
+        "findings": [
+          {
+            "id": "p2-ia-1",
+            "page": 2,
+            "severity": "choque",
+            "box": {
+              "x": 331.5080547652916,
+              "y": 306.6038028169014,
+              "w": 94.41417140825035,
+              "h": 13.975035211267604
+            },
+            "boxNorm": {
+              "x": 0.27844950213371267,
+              "y": 0.3641851106639839,
+              "w": 0.07930298719772404,
+              "h": 0.016599597585513076
+            },
+            "texts": [
+              "LIVING",
+              "COMEDOR"
+            ],
+            "zone": "sector central izquierdo",
+            "confidence": 0.97,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "corrida",
+              "mosaicos"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 323.7771006401138,
+              "y": 294.4074084507042,
+              "w": 109.39765807254622,
+              "h": 31.634397887323942
+            }
+          },
+          {
+            "id": "p2-ia-2",
+            "page": 2,
+            "severity": "choque",
+            "box": {
+              "x": 770.9785028449502,
+              "y": 339.2122183098591,
+              "w": 45.30186699857752,
+              "h": 8.893204225352113
+            },
+            "boxNorm": {
+              "x": 0.6475817923186344,
+              "y": 0.40291750503018103,
+              "w": 0.03805120910384068,
+              "h": 0.01056338028169014
+            },
+            "texts": [
+              "COCINA",
+              "H=2.40"
+            ],
+            "zone": "sector central",
+            "confidence": 0.97,
+            "source": "vision",
+            "originLabel": "Detectado por IA",
+            "provider": "deepseek:deepseek-flash",
+            "passes": [
+              "mosaicos",
+              "corrida"
+            ],
+            "inkSnapped": true,
+            "modelBox": {
+              "x": 765.8809843527738,
+              "y": 310.39188433098593,
+              "w": 43.469469985775234,
+              "h": 41.2276243309859
+            }
+          }
+        ],
+        "usage": {
+          "inputTokens": 18504,
+          "outputTokens": 5818,
+          "cachedInputTokens": 14592,
+          "reasoningTokens": 5344,
+          "calls": 17
+        },
+        "tiles": 18,
+        "byPass": {
+          "mosaicos": {
+            "tiles": 6,
+            "skipped": 0,
+            "apiCalls": 6,
+            "failed": 0,
+            "inputTokens": 7680,
+            "outputTokens": 2804,
+            "cachedInputTokens": 6144,
+            "reasoningTokens": 2641
+          },
+          "corrida": {
+            "tiles": 12,
+            "skipped": 1,
+            "apiCalls": 11,
+            "failed": 0,
+            "inputTokens": 10824,
+            "outputTokens": 3014,
+            "cachedInputTokens": 8448,
+            "reasoningTokens": 2703
+          }
+        },
+        "status": "ok",
+        "notes": [
+          "pasada mosaicos: mosaicos de ~1400px, solape 250px",
+          "pasada corrida: mosaicos de ~1400px, solape 250px"
+        ],
+        "ms": 10615,
+        "costUsd": {
+          "peak": 0.008242751999999999,
+          "offPeak": 0.0041213759999999995
+        }
+      },
+      {
+        "page": 3,
+        "kind": "vector",
+        "width": 1190.55,
+        "height": 841.89,
+        "textCount": 22,
+        "findings": [],
+        "status": "ok",
+        "ms": 11
+      }
+    ]
+  }
+]

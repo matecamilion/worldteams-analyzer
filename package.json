@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --test tests/*.test.mts",
+    "muestras": "tsx scripts/run-samples.mts ultima && tsx scripts/eval-samples.mts ultima --detalle",
     "eval": "tsx scripts/eval-detector.mts",
     "postinstall": "node -e \"require('fs').copyFileSync('node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs','public/pdf.worker.min.mjs')\""
   },

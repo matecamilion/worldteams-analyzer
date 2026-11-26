@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { forgetCachedPage, getCachedPage, hashPdf, putCachedPage } from "@/lib/client/cache";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
 import { numberFindings, summarize, toCsv } from "@/lib/detector/report";
 import type { PageResult } from "@/lib/detector/types";
@@ -10,7 +11,8 @@ import { ResultsPanel } from "./ResultsPanel";
 import { UploadZone } from "./UploadZone";
 
 /** `scanned`: la página casi no tiene texto (va a visión, puede tardar hasta un minuto). */
-type PageEntry = { page: number; status: PageStatus; result?: PageResult; scanned?: boolean };
+/** `cachedAt`: el resultado salió del caché del navegador (no se volvió a consultar a la IA). */
+type PageEntry = { page: number; status: PageStatus; result?: PageResult; scanned?: boolean; cachedAt?: string };
 
 /** Misma regla que el servidor (inspectPage): menos de 20 caracteres de texto = página escaneada. */
 async function looksScanned(doc: PDFDocumentProxy, page: number): Promise<boolean> {
@@ -22,7 +24,7 @@ async function looksScanned(doc: PDFDocumentProxy, page: number): Promise<boolea
     return false;
   }
 }
-type Loaded = { name: string; bytes: ArrayBuffer; doc: PDFDocumentProxy; run: number };
+type Loaded = { name: string; bytes: ArrayBuffer; doc: PDFDocumentProxy; run: number; hash: string | null };
 
 /** Reintentos automáticos por página ante fallas de red o del servidor (además del manual). */
 const AUTO_RETRIES = 1;
@@ -81,8 +83,15 @@ export function DetectorApp() {
   const setPage = (page: number, patch: Partial<PageEntry>) =>
     setPages((prev) => prev.map((p) => (p.page === page ? { ...p, ...patch } : p)));
 
-  const analyze = useCallback(async (doc: PDFDocumentProxy, bytes: ArrayBuffer, page: number, run: number) => {
-    setPage(page, { status: "analizando", scanned: await looksScanned(doc, page) });
+  const analyze = useCallback(async (doc: PDFDocumentProxy, bytes: ArrayBuffer, hash: string | null, page: number, run: number, useCache = true) => {
+    const scanned = await looksScanned(doc, page);
+    // Página escaneada ya analizada en este navegador: se reutiliza sin llamar a la IA.
+    const cached = scanned && hash && useCache ? getCachedPage(hash, page) : null;
+    if (cached) {
+      if (run === runId.current) setPage(page, { status: "ok", scanned, result: cached.result, cachedAt: cached.savedAt });
+      return;
+    }
+    setPage(page, { status: "analizando", scanned, cachedAt: undefined });
     let result: PageResult | null = null;
     for (let attempt = 0; attempt <= AUTO_RETRIES && !result; attempt++) {
       try {
@@ -93,6 +102,7 @@ export function DetectorApp() {
       }
     }
     if (run !== runId.current) return; // Se subió otro archivo mientras tanto.
+    if (hash) putCachedPage(hash, page, result!);
     setPage(page, { status: result!.status === "ok" ? "ok" : "no_verificada", result: result! });
   }, []);
 
@@ -105,8 +115,10 @@ export function DetectorApp() {
       try {
         const bytes = await file.arrayBuffer();
         const doc = await openPdf(bytes);
+        // Sin crypto.subtle (contexto no seguro) no hay caché; el análisis sigue igual.
+        const hash = await hashPdf(bytes).catch(() => null);
         const run = ++runId.current;
-        setLoaded({ name: file.name, bytes, doc, run });
+        setLoaded({ name: file.name, bytes, doc, run, hash });
         setPages(Array.from({ length: doc.numPages }, (_, i) => ({ page: i + 1, status: "pendiente" as const })));
         setCrops({});
         setSelectedId(null);
@@ -117,7 +129,7 @@ export function DetectorApp() {
         // Página por página: cada request entra holgado en el límite de duración de Vercel.
         for (let n = 1; n <= doc.numPages; n++) {
           if (run !== runId.current) return;
-          await analyze(doc, bytes, n, run);
+          await analyze(doc, bytes, hash, n, run);
         }
         if (run === runId.current) setRunning(false);
       } catch {
@@ -144,7 +156,9 @@ export function DetectorApp() {
   const retry = useCallback(
     async (page: number) => {
       if (!loaded) return;
-      await analyze(loaded.doc, loaded.bytes, page, runId.current);
+      // Reintentar o "Volver a analizar" siempre consulta de nuevo (y reemplaza lo guardado).
+      if (loaded.hash) forgetCachedPage(loaded.hash, page);
+      await analyze(loaded.doc, loaded.bytes, loaded.hash, page, runId.current, false);
     },
     [analyze, loaded],
   );
@@ -163,7 +177,8 @@ export function DetectorApp() {
   const done = pages.filter((p) => p.status === "ok" || p.status === "no_verificada").length;
   const currentEntry = pages.find((p) => p.status === "analizando");
   const current = currentEntry?.page;
-  const hasScanned = results.some((r) => r.kind === "image");
+  // Sólo si alguna página pasó (o está pasando) por la IA: en un PDF vectorial el aviso confunde.
+  const hasScanned = results.some((r) => r.kind === "image") || pages.some((p) => p.scanned);
 
   const nonce = useRef(0);
   const select = useCallback(
@@ -280,6 +295,11 @@ export function DetectorApp() {
               <span aria-hidden>{summary.cercanias === 1 ? "cercanía" : "cercanías"}</span>
             </div>
             <div className="flex items-baseline gap-1.5">
+              <dt className="sr-only">Duplicados</dt>
+              <dd className="num font-display text-xl font-semibold text-gris">{summary.duplicados}</dd>
+              <span aria-hidden>{summary.duplicados === 1 ? "duplicado" : "duplicados"}</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
               <dt className="sr-only">Páginas no verificadas</dt>
               <dd className={`num font-display text-xl font-semibold ${summary.noVerificadas ? "text-cercania" : "text-gris"}`}>
                 {summary.noVerificadas}
@@ -325,16 +345,14 @@ export function DetectorApp() {
 
       <div className="mx-auto grid w-full max-w-[1600px] flex-1 gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-8">
-          <p
-            className={`flex gap-2 rounded border px-3 py-2 text-sm ${
-              hasScanned ? "border-cercania/40 bg-cercania-suave text-tinta" : "border-linea bg-hoja text-gris"
-            }`}
-          >
+          {hasScanned && (
+          <p className="flex gap-2 rounded border border-cercania/40 bg-cercania-suave px-3 py-2 text-sm text-tinta">
             <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-cercania" fill="currentColor">
               <path d="M10 2 1 18h18L10 2Zm-.9 6h1.8v5H9.1V8Zm0 6.5h1.8v1.7H9.1v-1.7Z" />
             </svg>
             En páginas escaneadas los resultados son orientativos; conviene confirmarlos a ojo.
           </p>
+          )}
           {pages.map((p) => (
             <PageView
               key={`${loaded.run}-${p.page}`}
@@ -342,6 +360,7 @@ export function DetectorApp() {
               pageNumber={p.page}
               status={p.status}
               scanned={p.scanned}
+              cachedAt={p.cachedAt}
               result={p.result}
               findings={findings.filter((f) => f.page === p.page)}
               selectedId={selectedId}

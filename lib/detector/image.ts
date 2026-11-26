@@ -7,7 +7,7 @@ import { ORIGIN_LABEL, type Finding, type PageResult } from "./types";
 import { sectorName } from "./zones";
 import { VisionError, type VisionBox, type VisionProvider, type VisionUsage } from "../vision/provider";
 import { REFINE_PROMPT } from "../vision/prompt";
-import { snapToInk, toGray } from "./ink";
+import { countTextBlobs, snapToInk, toGray } from "./ink";
 
 /** Una pasada de visión: la imagen cortada en mosaicos de un tamaño dado. */
 export type VisionPass = { name: string; tileSize: number; overlap: number; extraPerAxis?: number };
@@ -49,6 +49,11 @@ export type ImageOptions = {
   refineMarginPt: number;
   refineUpscale: number;
   /**
+   * No mandar a la IA mosaicos sin texto: se saltea un mosaico sin ninguna mancha con alto de
+   * letra; en las pasadas secundarias también con 1–2 (la primera pasada ya cubre toda la página).
+   */
+  skipBlankTiles: boolean;
+  /**
    * Ajuste a tinta: toma la caja del modelo como pista y la ajusta al renglón de texto real
    * (el de más tinta que toca la caja). Medido offline sobre 18 corridas: IoU medio 0,40 → 0,92.
    */
@@ -63,8 +68,8 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   mergeTolerancePt: 25,
   edgeMargin: 6,
   minConfidence: 0.5,
-  // 13 llamadas con las dos pasadas: todas en una sola tanda.
-  concurrency: 16,
+  // Tope de llamadas simultáneas por página (medido: con 6 el tiempo no empeora frente a 16).
+  concurrency: 6,
   retries: 2,
   deadlineMs: 60_000,
   jpegQuality: 88,
@@ -73,6 +78,8 @@ export const DEFAULT_IMAGE_OPTIONS: ImageOptions = {
   refineMarginPt: 40,
   refineUpscale: 2,
   inkSnap: true,
+  // Medido en 3 corridas × 3 páginas escaneadas: misma calidad (69/69), 1 llamada menos por página.
+  skipBlankTiles: true,
 };
 
 export type Candidate = {
@@ -86,9 +93,24 @@ export type Candidate = {
   modelBox?: Rect;
 };
 
+export type PassStats = {
+  /** Mosaicos que planificó la pasada. */
+  tiles: number;
+  /** Mosaicos que no se mandaron (casi vacíos). */
+  skipped: number;
+  /** Llamadas HTTP reales a la API, reintentos incluidos. */
+  apiCalls: number;
+  failed: number;
+  inputTokens: number;
+  outputTokens: number;
+  cachedInputTokens: number;
+  reasoningTokens: number;
+};
+
 export type ImagePageResult = PageResult & {
   usage: VisionUsage & { calls: number };
   tiles: number;
+  byPass?: Record<string, PassStats>;
 };
 
 async function withRetries<T>(fn: () => Promise<T>, retries: number, deadline = Infinity): Promise<T> {
@@ -202,9 +224,12 @@ export async function analyzeImagePage(
     ...pageSize,
     textCount: 0,
     findings: [] as Finding[],
-    usage: { inputTokens: 0, outputTokens: 0, calls: 0 },
+    usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningTokens: 0, calls: 0 },
     tiles: 0,
+    byPass: {} as Record<string, PassStats>,
   };
+  const stats = (name: string) =>
+    (base.byPass[name] ??= { tiles: 0, skipped: 0, apiCalls: 0, failed: 0, inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningTokens: 0 });
 
   const img = await extractLargestImage(page);
   if (!img) {
@@ -219,7 +244,21 @@ export async function analyzeImagePage(
     planTiles(img.width, img.height, pass.tileSize, pass.overlap, pass.extraPerAxis).map((tile) => ({ pass, tile })),
   );
 
-  const results = await mapLimit(jobs, opts.concurrency, async ({ pass, tile }: { pass: VisionPass; tile: Tile }) => {
+  for (const j of jobs) stats(j.pass.name).tiles++;
+
+  let toSend = jobs;
+  if (opts.skipBlankTiles) {
+    const gray = toGray(img.data, img.width, img.height, img.channels);
+    const primary = opts.passes[0]?.name;
+    toSend = jobs.filter(({ pass, tile }) => {
+      const blobs = countTextBlobs(gray, tile);
+      const skip = blobs === 0 || (pass.name !== primary && blobs <= 2);
+      if (skip) stats(pass.name).skipped++;
+      return !skip;
+    });
+  }
+
+  const results = await mapLimit(toSend, opts.concurrency, async ({ pass, tile }: { pass: VisionPass; tile: Tile }) => {
     const data = await source
       .clone()
       .extract({ left: tile.x, top: tile.y, width: tile.w, height: tile.h })
@@ -227,7 +266,10 @@ export async function analyzeImagePage(
       .toBuffer();
     try {
       const r = await withRetries(
-        () => provider.detectOverlaps({ data, mime: "image/jpeg", width: tile.w, height: tile.h }),
+        () => {
+          stats(pass.name).apiCalls++;
+          return provider.detectOverlaps({ data, mime: "image/jpeg", width: tile.w, height: tile.h });
+        },
         opts.retries,
         deadline,
       );
@@ -245,7 +287,15 @@ export async function analyzeImagePage(
     base.usage.calls++;
     base.usage.inputTokens += r.usage.inputTokens;
     base.usage.outputTokens += r.usage.outputTokens;
+    base.usage.cachedInputTokens += r.usage.cachedInputTokens ?? 0;
+    base.usage.reasoningTokens += r.usage.reasoningTokens ?? 0;
+    const st = stats(r.pass.name);
+    st.inputTokens += r.usage.inputTokens;
+    st.outputTokens += r.usage.outputTokens;
+    st.cachedInputTokens += r.usage.cachedInputTokens ?? 0;
+    st.reasoningTokens += r.usage.reasoningTokens ?? 0;
     if (r.error) {
+      st.failed++;
       errors.push(`${r.pass.name}#${r.tile.index}: ${r.error}`);
       continue;
     }
@@ -376,9 +426,9 @@ export async function analyzeImagePage(
     findings,
     status: failed ? "no_verificada" : "ok",
     error: failed
-      ? failed === jobs.length
+      ? failed === toSend.length
         ? `No se pudo analizar la página: ${errors[0]}`
-        : `Fallaron ${failed} de ${jobs.length} llamadas; el resultado es parcial.`
+        : `Fallaron ${failed} de ${toSend.length} llamadas; el resultado es parcial.`
       : undefined,
     notes: [
       ...opts.passes.map((p) => `pasada ${p.name}: mosaicos de ~${Math.min(p.tileSize, Math.max(img.width, img.height))}px, solape ${p.overlap}px`),

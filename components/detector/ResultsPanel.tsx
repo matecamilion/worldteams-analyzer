@@ -1,7 +1,9 @@
 "use client";
 
 import type { NumberedFinding } from "@/lib/detector/report";
-import { SEVERITY_LABEL } from "@/lib/detector/report";
+import { AI_TEXT_NOTE, SEVERITY_LABEL } from "@/lib/detector/report";
+
+const AI_TEXT_NOTE_CAP = AI_TEXT_NOTE[0].toUpperCase() + AI_TEXT_NOTE.slice(1);
 import type { PageResult } from "@/lib/detector/types";
 import type { PageStatus } from "./PageView";
 
@@ -103,6 +105,7 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                           </span>
                           <span className="min-w-0">
                             <span className="block text-sm font-semibold break-words">{f.texts.join(" × ") || "Textos ilegibles"}</span>
+                            {f.source === "vision" && <span className="block text-xs text-gris italic">{AI_TEXT_NOTE_CAP}</span>}
                             <span className="mt-0.5 block text-xs text-gris">
                               <span className={f.severity === "choque" ? "font-semibold text-choque" : f.severity === "cercania" ? "font-semibold text-cercania" : ""}>
                                 {SEVERITY_LABEL[f.severity]}

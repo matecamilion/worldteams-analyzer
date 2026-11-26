@@ -24,6 +24,9 @@ export function numberFindings(pages: PageResult[]): NumberedFinding[] {
     .map((f) => ({ ...f, n: ++n }));
 }
 
+/** Leyenda de los textos transcriptos por el modelo de visión: pueden estar mal leídos. */
+export const AI_TEXT_NOTE = "texto leído por IA (aproximado)";
+
 export function summarize(pages: PageResult[]) {
   const all = pages.flatMap((p) => p.findings);
   return {
@@ -51,6 +54,7 @@ export function toCsv(fileName: string, pages: PageResult[]): string {
     "numero",
     "tipo",
     "textos",
+    "textos_exactos",
     "zona",
     "origen",
     "confianza",
@@ -65,7 +69,7 @@ export function toCsv(fileName: string, pages: PageResult[]): string {
     const estado = p.status === "ok" ? "verificada" : "no verificada";
     const own = numbered.filter((f) => f.page === p.page);
     if (p.status === "no_verificada") {
-      rows.push([fileName, p.page, "", "Página no verificada", p.error ?? "", "", "", "", "", "", "", "", estado]);
+      rows.push([fileName, p.page, "", "Página no verificada", p.error ?? "", "", "", "", "", "", "", "", "", estado]);
     }
     for (const f of own) {
       rows.push([
@@ -74,6 +78,8 @@ export function toCsv(fileName: string, pages: PageResult[]): string {
         f.n,
         SEVERITY_LABEL[f.severity],
         f.texts.join(" / "),
+        // Los textos del PDF son exactos; los leídos por la IA, aproximados.
+        f.source === "vision" ? `no: ${AI_TEXT_NOTE}` : "sí",
         f.zone,
         f.originLabel,
         f.confidence.toFixed(2).replace(".", ","),

@@ -6,6 +6,8 @@ export type RawTextItem = {
   str: string;
   transform: number[];
   width: number;
+  /** Bloque BT…ET de origen, cuando se separó desde las operaciones del PDF (runs.ts). */
+  block?: number;
 };
 
 type Run = {
@@ -21,6 +23,7 @@ type Run = {
   length: number;
   fontSize: number;
   angle: number;
+  block?: number;
 };
 
 function toRun(item: RawTextItem, pageHeight: number): Run | null {
@@ -45,6 +48,7 @@ function toRun(item: RawTextItem, pageHeight: number): Run | null {
     length: item.width,
     fontSize,
     angle: Math.round((Math.atan2(b, a) * 180) / Math.PI),
+    block: item.block,
   };
 }
 
@@ -57,7 +61,9 @@ function mergeRuns(runs: Run[]): Run[] {
   const out: Run[] = [];
   for (const r of runs) {
     const prev = out[out.length - 1];
-    if (prev && prev.angle === r.angle && Math.abs(prev.fontSize - r.fontSize) < 0.05 * r.fontSize) {
+    // Textos de bloques BT…ET distintos son rótulos distintos aunque estén pegados: no se unen.
+    const otherBlock = prev?.block !== undefined && r.block !== undefined && prev.block !== r.block;
+    if (prev && !otherBlock && prev.angle === r.angle && Math.abs(prev.fontSize - r.fontSize) < 0.05 * r.fontSize) {
       // Proyección del origen de r sobre el sistema de prev.
       const dx = r.ox - prev.ox;
       const dy = r.oy - prev.oy;

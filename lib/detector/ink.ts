@@ -124,3 +124,50 @@ export function snapToInk(img: Gray, box: PxBox, opts: SnapOptions = DEFAULT_SNA
   }
   return { x: x0 + left, y: y0 + ry0, w: right - left + 1, h: bandH };
 }
+
+/**
+ * Cuenta manchas de tinta con alto de letra (6–60 px, hasta 600 px de ancho: una palabra o dos
+ * textos encimados fundidos en una mancha) dentro de un rectángulo. Sirve para no mandar a la IA
+ * mosaicos sin texto. Las líneas finas (< 6 px de alto) y el ruido chico no cuentan.
+ */
+export function countTextBlobs(img: Gray, r: PxBox, threshold = 110): number {
+  const w = Math.round(r.w);
+  const h = Math.round(r.h);
+  const x0 = Math.round(r.x);
+  const y0 = Math.round(r.y);
+  const seen = new Uint8Array(w * h);
+  const dark = (i: number, j: number) => img.data[(y0 + j) * img.width + x0 + i] < threshold;
+  const stack: number[] = [];
+  let n = 0;
+  for (let j = 0; j < h; j++) {
+    for (let i = 0; i < w; i++) {
+      const k = j * w + i;
+      if (seen[k] || !dark(i, j)) continue;
+      let bx0 = i, bx1 = i, by0 = j, by1 = j, area = 0;
+      seen[k] = 1;
+      stack.push(k);
+      while (stack.length) {
+        const c = stack.pop()!;
+        const cx = c % w;
+        const cy = (c / w) | 0;
+        area++;
+        if (cx < bx0) bx0 = cx;
+        if (cx > bx1) bx1 = cx;
+        if (cy < by0) by0 = cy;
+        if (cy > by1) by1 = cy;
+        for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const nk = ny * w + nx;
+          if (!seen[nk] && dark(nx, ny)) {
+            seen[nk] = 1;
+            stack.push(nk);
+          }
+        }
+      }
+      const bh = by1 - by0 + 1;
+      const bw = bx1 - bx0 + 1;
+      if (bh >= 6 && bh <= 60 && bw >= 2 && bw <= 600 && area >= 12) n++;
+    }
+  }
+  return n;
+}

@@ -8,7 +8,15 @@ export function getVisionProvider(name = process.env.VISION_PROVIDER ?? "deepsee
   switch (name) {
     case "deepseek": {
       const key = process.env.DEEPSEEK_API_KEY;
-      return key ? new DeepSeekProvider(key, process.env.DEEPSEEK_MODEL ?? "deepseek-flash") : null;
+      // max_tokens 8192: tope de seguridad (el razonamiento medido por llamada queda muy por debajo).
+      // VISION_REASONING=none apaga el razonamiento: más barato y rápido, medido aparte (ver README).
+      const reasoning = process.env.VISION_REASONING as "none" | "low" | "high" | undefined;
+      return key
+        ? new DeepSeekProvider(key, process.env.DEEPSEEK_MODEL ?? "deepseek-flash", undefined, undefined, {
+            maxTokens: 8192,
+            ...(reasoning ? { reasoningEffort: reasoning } : {}),
+          })
+        : null;
     }
     case "gemini": {
       const key = process.env.GEMINI_API_KEY;

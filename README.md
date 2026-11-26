@@ -22,6 +22,11 @@ marcada como **no verificada**, nunca se omite.
 - **Páginas con texto (vectoriales):** se leen los textos del PDF con pdf.js y se arma la caja de
   tinta de cada uno (con rotación). Hay *choque* si las cajas se pisan y *cercanía* si quedan a
   2,5 pt o menos. No usa IA, y los resultados se marcan como "Texto del PDF".
+  - pdf.js 6 junta en un solo texto dos rótulos del mismo renglón si están a menos de ~0,1 × el
+    cuerpo (por ejemplo "NPT +0.15" y "ESC 1:50" a 1 pt), y ya no tiene opción para evitarlo.
+    `lib/detector/runs.ts` reconstruye cada operación de texto del PDF y separa esos ítems sólo si
+    vienen de bloques de texto distintos (`BT…ET`) y los textos y el largo coinciden con lo que dio
+    pdf.js. En los 4 PDFs de muestra eso cambia únicamente ese caso.
 - **Páginas escaneadas (sin texto):** se extrae la imagen embebida y se divide en mosaicos que se
   envían a un modelo de visión (DeepSeek por defecto), que devuelve cajas normalizadas 0–1:
   1. Dos pasadas independientes: grilla de 2×2 mosaicos de ~1400 px y grilla *corrida* de 3×3,
@@ -31,11 +36,25 @@ marcada como **no verificada**, nunca se omite.
      del modelo (`modelBox`) para auditar.
   3. Se descartan duplicados (mismo texto a menos de 60 pt) y lo que sólo vio la segunda pasada
      sin encajar en un renglón.
-  4. Los resultados se marcan "Detectado por IA" con su confianza. La imagen no se endereza:
-     las cajas se dibujan sobre la misma imagen.
-- **Tiempos:** corte de 20 s por llamada al modelo, con hasta 2 reintentos. Pasados 60 s no se
-  empieza ningún intento nuevo, así que la página termina antes de los 120 s de `maxDuration`. Una
-  página escaneada tarda entre 5 y 60 s, y la interfaz lo avisa.
+  4. Los resultados se marcan "Detectado por IA" con su confianza, y el texto se rotula
+     "texto leído por IA (aproximado)": el modelo puede leer mal ("H=0.40" por "H=2.40"). Lo
+     exacto es la ubicación, no la transcripción. La imagen no se endereza: las cajas se dibujan
+     sobre la misma imagen.
+  5. No se mandan a la IA los mosaicos sin texto: se cuentan manchas de tinta con alto de letra
+     y se saltea un mosaico sin ninguna (o con 1–2 en la pasada corrida, porque la primera ya
+     cubre toda la página).
+- **Tiempos:** corte de 20 s por llamada al modelo, con hasta 2 reintentos, y como mucho 6
+  llamadas simultáneas por página. Pasados 60 s no se empieza ningún intento nuevo, así que la
+  página termina antes de los 120 s de `maxDuration`. Una página escaneada tarda entre 5 y 60 s,
+  y la interfaz lo avisa.
+- **Caché de resultados:** el resultado de cada página escaneada que salió bien se guarda en el
+  navegador (`localStorage`), con la clave versión del detector + SHA-256 del PDF + número de
+  página. Si se vuelve a subir el mismo archivo, esa página se muestra al instante con la marca
+  "Resultado guardado" y la fecha, sin consultar a la IA; "Volver a analizar" la consulta de nuevo.
+  Las páginas vectoriales no se guardan, porque se analizan en milisegundos. Los resultados no
+  salen del navegador. Limitación: no se comparte entre navegadores ni personas; un caché en el
+  servidor necesitaría una tabla nueva en Supabase. Cambiar `DETECTOR_VERSION`
+  (`lib/client/cache.ts`) invalida todo lo guardado.
 
 ### Cómo se midió
 
@@ -54,13 +73,44 @@ marcada como **no verificada**, nunca se omite.
 | 1–5 (vectoriales) | 7/7 choques, 0 de más |
 | 6 (escaneada, DeepSeek, config. final, 10 corridas) | 29/30 choques, 2 de más, IoU medio 0,93, error de centro 0,3 pt |
 
-- Costo de la página 6: USD 0,005–0,023 por análisis (13 llamadas).
+- **Muestras sintéticas:** `npm run muestras` corre los 4 PDFs de `samples/` y muestra, por
+  página, esperado contra detectado y las marcas de más. Compara con `samples/esperados.json` (o,
+  si no está, con `samples/esperados-provisorio.json`, armado mirando los PDFs) y con
+  `samples/expected.json` para el plano de prueba.
 - Scripts para repetir las mediciones:
   - `scripts/vision-bench.mts`: corridas reales contra el modelo.
   - `scripts/rescore-bench.mts`: vuelve a puntuar corridas guardadas.
   - `scripts/calib-synthetic.mts`: calibración de coordenadas con imágenes sintéticas.
   - `scripts/snap-offline.mts`: ajuste a tinta sin llamar a la API.
 - Los resultados crudos quedan en `bench/`.
+
+### Consumo de la IA
+
+Medido el 26/11/2026 con `scripts/run-samples.mts` y `scripts/consumo.mts`, 3 corridas por
+configuración, sobre las 3 páginas escaneadas de las muestras. Costo con tarifas de DeepSeek
+(fuera de pico – pico), contando la entrada que sale del caché de DeepSeek (más barata).
+
+| Página escaneada | Antes: llamadas · tiempo · USD | Ahora: llamadas · tiempo · USD |
+|---|---|---|
+| planos-prueba p6 | 13–15 · 24 s · 0,0056–0,0112 | 12–13 · 23–27 s · 0,0047–0,0121 |
+| 2-escaneado p1 | 18–19 · 17 s · 0,0064–0,0128 | 17 · 13–15 s · 0,0043–0,0105 |
+| 3-mixto p2 | 18 · 10 s · 0,0037–0,0075 | 17 · 11–14 s · 0,0040–0,0086 |
+
+- **Dónde está el costo:** ~90 % es salida, y ~94 % de esa salida es **razonamiento interno**
+  del modelo (DeepSeek razona por defecto). El JSON de respuesta ya es compacto (~50 tokens).
+  El ~80 % de la entrada sale del caché de DeepSeek.
+- **Qué se aplicó:** saltear mosaicos sin texto (1 llamada menos por página), 6 llamadas
+  simultáneas como tope y `max_tokens` 8192 como seguridad (una respuesta cortada se reintenta).
+  Calidad en 6 corridas: 137/138 detectados y 3 marcas de más, todas en una misma corrida, contra
+  68/69 y 1 de más en las 3 corridas previas. Es variabilidad del modelo y no un efecto de los
+  cambios: no hubo respuestas cortadas.
+- **Qué se probó y se descartó:** razonamiento "low" no bajó el costo y sumó marcas de más.
+- **Opción medida, no activada:** `VISION_REASONING=none` apaga el razonamiento. En 8 corridas:
+  costo entre 7 y 9 veces menor (USD 0,0006–0,0018 por página), 4–6 s por página, sin marcas de más e IoU
+  igual en la página 6 (24/24). Pero en 4 de 8 corridas perdió el choque "3.50 × 3.25" del PDF 2,
+  que con razonamiento se encuentra siempre.
+- **Temperatura:** en modo razonamiento DeepSeek ignora `temperature` (según su documentación).
+  Por eso las corridas varían aunque se pida 0.
 
 ### Decisiones descartadas, con números
 
@@ -87,8 +137,8 @@ marcada como **no verificada**, nunca se omite.
 - **Marcas de más ocasionales:** el modelo a veces inventa un choque sobre un rótulo limpio (visto
   2 veces en 18 corridas sobre ESCALERA). Medir la densidad de tinta no sirve para filtrarlo
   (0,33 contra 0,35–0,38 en choques reales).
-- **Variabilidad entre corridas:** el modelo no es determinista aunque se pida `temperature=0`. El
-  mismo plano puede dar un resultado distinto en otra corrida; en las medidas, 1 de cada 5 corridas
+- **Variabilidad entre corridas:** el modelo no es determinista (en modo razonamiento ignora
+  `temperature`). El mismo plano puede dar un resultado distinto en otra corrida; en las medidas, 1 de cada 5 corridas
   pierde un choque o suma una marca. Algunas llamadas fallan o se demoran, y entonces la página
   queda "no verificada" y conviene reintentarla.
 - **Páginas escaneadas:** sus resultados son orientativos y conviene confirmarlos a ojo (la
@@ -108,4 +158,5 @@ marcada como **no verificada**, nunca se omite.
 | `SUPABASE_SERVICE_ROLE_KEY` | Sólo servidor: escribe el avance del video |
 | `VISION_PROVIDER` | `deepseek` (por defecto) o `gemini` |
 | `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` | Sólo servidor |
+| `VISION_REASONING` | Vacío (razonamiento por defecto) o `none` para apagarlo (ver "Consumo de la IA") |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Sólo servidor (opcional) |

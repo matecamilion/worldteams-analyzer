@@ -85,3 +85,18 @@ test("el umbral es configurable", () => {
   assert.equal(strict.filter((x) => x.severity === "choque").length, 0);
   assert.equal(loose.filter((x) => x.severity === "choque").length, 1);
 });
+
+test("separa rótulos que pdfjs combina si vienen de bloques de texto distintos, y nada más", async () => {
+  const { splitCombinedItems } = await import("../lib/detector/runs");
+  const item = { str: "NPT +0.15ESC 1:50", transform: [10, 0, 0, 10, 800, 130], width: 91.88 };
+  const runs = [
+    { str: "NPT +0.15", transform: [10, 0, 0, 10, 800, 130], width: 48.08, block: 5 },
+    { str: "ESC 1:50", transform: [10, 0, 0, 10, 849.08, 130], width: 42.8, block: 6 },
+  ];
+  const out = splitCombinedItems([item], runs);
+  assert.deepEqual(out.map((o) => o.str), ["NPT +0.15", "ESC 1:50"]);
+  // Mismo bloque (texto partido por kerning): no se separa.
+  assert.equal(splitCombinedItems([item], runs.map((r) => ({ ...r, block: 5 }))).length, 1);
+  // Si los textos no coinciden con el ítem, no se toca.
+  assert.equal(splitCombinedItems([{ ...item, str: "OTRA COSA" }], runs).length, 1);
+});

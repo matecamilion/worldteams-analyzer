@@ -29,6 +29,8 @@ type Props = {
   status: PageStatus;
   /** Página escaneada: el análisis con IA puede tardar hasta un minuto. */
   scanned?: boolean;
+  /** El resultado salió del caché del navegador: cuándo se había analizado. */
+  cachedAt?: string;
   result?: PageResult;
   findings: NumberedFinding[];
   selectedId: string | null;
@@ -57,6 +59,7 @@ export function PageView({
   pageNumber,
   status,
   scanned,
+  cachedAt,
   result,
   findings,
   selectedId,
@@ -360,6 +363,18 @@ export function PageView({
           Página {pageNumber}
         </h2>
         {kindLabel && <span className="text-sm text-gris">{kindLabel}</span>}
+        {status === "ok" && cachedAt && (
+          <span
+            className="inline-flex items-center gap-2 text-sm text-gris"
+            title="Este mismo archivo ya se había analizado en este navegador: se muestra ese resultado sin volver a consultar a la IA."
+          >
+            <span className="rounded bg-linea/70 px-1.5 py-0.5 text-xs font-medium text-tinta">Resultado guardado</span>
+            del {new Date(cachedAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
+            <button type="button" onClick={onRetry} className="rounded border border-linea-fuerte bg-hoja px-2 py-0.5 text-tinta hover:bg-papel">
+              Volver a analizar
+            </button>
+          </span>
+        )}
         <span className="ml-auto text-sm">
           {status === "pendiente" && <span className="text-gris">En espera</span>}
           {status === "analizando" && (
@@ -452,7 +467,7 @@ export function PageView({
                 id={`caja-${f.id}`}
                 type="button"
                 onClick={() => onSelect(f.id)}
-                aria-label={`Hallazgo ${f.n}: ${SEVERITY_LABEL[f.severity]} entre ${f.texts.join(" y ")}`}
+                aria-label={`Hallazgo ${f.n}: ${SEVERITY_LABEL[f.severity]} entre ${f.texts.join(" y ")}${f.source === "vision" ? " (texto leído por IA, aproximado)" : ""}`}
                 aria-pressed={selected}
                 className={`absolute rounded-[2px] border-2 ${tone} shadow-[0_0_0_1px_rgb(255_255_255/0.9)] ${
                   selected ? "ring-2 ring-tinta ring-offset-2 ring-offset-white" : ""

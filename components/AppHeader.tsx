@@ -10,12 +10,13 @@ const NAV = [
 export function AppHeader({ current, email }: { current?: string; email?: string }) {
   return (
     <header className="bg-verde text-papel">
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-4 px-4 sm:gap-6 sm:px-6">
+      {/* En teléfonos: logo y "Salir" arriba, navegación abajo. Desde sm, todo en una fila. */}
+      <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-2.5 pb-1.5 sm:h-14 sm:flex-nowrap sm:gap-6 sm:px-6 sm:py-0">
         <Link href="/detector" className="flex shrink-0 items-center gap-3 rounded focus-visible:outline-lima">
           <Image src="/logo-crema.svg" alt="WorldTeams" width={112} height={22} priority />
           <span className="hidden border-l border-papel/25 pl-3 font-display text-sm font-medium md:inline">Revisor de planos</span>
         </Link>
-        <nav aria-label="Principal" className="flex gap-1">
+        <nav aria-label="Principal" className="order-last -ml-2.5 flex w-full gap-1 sm:order-none sm:ml-0 sm:w-auto">
           {NAV.map((item) => (
             <Link
               key={item.href}

@@ -1,20 +1,87 @@
 # Revisor de planos — WorldTeams
 
-Detector de textos superpuestos en planos PDF, con acceso por Google (allowlist) y video obligatorio.
+Herramienta web para revisar planos en PDF: marca dónde hay **textos encimados** (choques),
+rótulos repetidos en el mismo lugar (duplicados) y textos que casi se tocan (cercanías). Cada
+hallazgo se ve sobre el plano y en una lista, y se puede descargar como CSV.
 
-> README en construcción: login, video y lista de avance se documentan cuando estén terminados.
+Para usarla hay que entrar con una cuenta de Google **habilitada** y ver completo el **video de
+inducción**: las dos condiciones se verifican en el servidor. Una tercera pantalla, **Avance**,
+muestra quién de la lista de habilitados ya vio el video.
+
+Stack: Next.js 16 (App Router), TypeScript, Tailwind, Supabase (Auth, Postgres, Storage), Vercel.
+Los planos vectoriales se analizan con pdf.js y las páginas escaneadas con un modelo de visión
+(DeepSeek).
 
 ## Correr en local
 
 ```bash
-npm install          # copia también el worker de pdf.js a public/
-cp .env.example .env.local   # completar valores
+npm install                  # copia también el worker de pdf.js a public/
+cp .env.example .env.local   # completar los valores (ver tabla)
 npm run dev
-npm test             # pruebas unitarias
-npm run eval         # mide el detector vectorial contra samples/expected.json
+npm test                     # pruebas unitarias
+npm run eval                 # detector vectorial contra samples/expected.json (sin IA)
+npm run muestras             # los 4 PDFs de samples/ contra lo esperado (usa la IA, ver abajo)
 ```
 
-## Detector de textos superpuestos
+Variables de entorno. Los valores nunca se commitean: `.env*` está en `.gitignore`, salvo
+`.env.example`, que sólo tiene los nombres.
+
+| Variable | Dónde | Uso |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | navegador y servidor | URL del proyecto de Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | navegador y servidor | Clave pública (anon/publishable) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **sólo servidor** | Lee la lista de habilitados y escribe el avance del video |
+| `VISION_PROVIDER` | sólo servidor | `deepseek` (por defecto) o `gemini` (experimental) |
+| `DEEPSEEK_API_KEY` | **sólo servidor** | Modelo de visión para páginas escaneadas |
+| `DEEPSEEK_MODEL` | sólo servidor | Por defecto `deepseek-flash` |
+| `VISION_REASONING` | sólo servidor | Vacío (razonamiento por defecto) o `none` (ver "Consumo de la IA") |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | sólo servidor | **Experimental, no probado** contra la API real |
+
+Sin `DEEPSEEK_API_KEY` la herramienta funciona igual con planos vectoriales; las páginas
+escaneadas quedan "no verificadas".
+
+## Login con Google y lista de habilitados
+
+- El ingreso es con Google a través de Supabase Auth (`/login` → Google → `/auth/callback`).
+  El proveedor Google se configura en Supabase (Authentication → Providers), con la URL de
+  `/auth/callback` del sitio en las Redirect URLs.
+- **Lista de habilitados:** tabla `allowed_emails`. Al volver de Google, el callback compara el
+  correo (sin distinguir mayúsculas) con esa tabla. Si no está, cierra la sesión y vuelve al login
+  con el aviso "cuenta no habilitada". La comparación se repite en cada página y API protegida
+  (`lib/guard.ts`), así que quitar a alguien de la lista le corta el acceso en su próximo pedido.
+- La tabla sólo la lee el servidor, con la clave de service role: RLS no deja leerla con la
+  clave pública.
+- `proxy.ts` sólo refresca la cookie de sesión en cada pedido; no autoriza nada. El control está
+  en cada página y API.
+- **Limitación:** Supabase crea el usuario en `auth.users` al volver de Google, antes de que la
+  app pueda revisar la lista. Una cuenta no habilitada queda registrada ahí, sin sesión ni acceso.
+  Para evitarlo haría falta un *Before User Created hook* en Supabase Auth, que no está
+  configurado.
+
+## Video obligatorio
+
+El reproductor (`/video`) no deja adelantar ni cambiar la velocidad, pero eso es sólo comodidad:
+**lo que vale es lo que acredita el servidor**.
+
+- **Latidos:** mientras se reproduce, el navegador manda su posición cada 5 s (y al pausar) a
+  `POST /api/video/heartbeat`. El usuario sale de la sesión, nunca del cuerpo del pedido.
+- **Tope de crédito** (`lib/video.ts`, con pruebas en `tests/video.test.mts`): el crédito nunca
+  baja y nunca avanza más que el tiempo real transcurrido desde el latido anterior (a 1×, con 2 %
+  + 0,3 s de tolerancia), ni más de 15 s por latido, ni más que la duración. El primer latido
+  acredita como mucho 2 s. Saltar al final, acelerar o mandar latidos inventados no suma más
+  rápido que mirar el video.
+- **Duración fija en el servidor:** 152,853 s; no se usa la que informa el navegador. El video
+  cuenta como visto al **98 %** (≈ 149,8 s).
+- El avance se guarda en `video_progress` con la función `record_heartbeat` (sólo service role);
+  `completed_at` marca el completado. Al volver, el reproductor retoma desde lo acreditado.
+- **Guardas:** `/detector` y `POST /api/analyze` llaman a `requireToolAccess()`: sesión válida +
+  lista de habilitados + video completado según `video_progress`. Sin eso, la página redirige (al
+  login, a cerrar sesión si la cuenta no está habilitada, o a `/video`) y la API responde 401/403
+  sin analizar nada. Ocultar el botón en la interfaz no alcanzaría.
+- **Avance** (`/avance`): todas las personas de la lista de habilitados, con estado (completo, en
+  curso, sin empezar), porcentaje y fechas.
+
+## Cómo detecta
 
 Cada página se analiza por separado (`POST /api/analyze?page=N`), y una página que falla queda
 marcada como **no verificada**, nunca se omite.
@@ -47,14 +114,33 @@ marcada como **no verificada**, nunca se omite.
   llamadas simultáneas por página. Pasados 60 s no se empieza ningún intento nuevo, así que la
   página termina antes de los 120 s de `maxDuration`. Una página escaneada tarda entre 5 y 60 s,
   y la interfaz lo avisa.
-- **Caché de resultados:** el resultado de cada página escaneada que salió bien se guarda en el
-  navegador (`localStorage`), con la clave versión del detector + SHA-256 del PDF + número de
-  página. Si se vuelve a subir el mismo archivo, esa página se muestra al instante con la marca
-  "Resultado guardado" y la fecha, sin consultar a la IA; "Volver a analizar" la consulta de nuevo.
-  Las páginas vectoriales no se guardan, porque se analizan en milisegundos. Los resultados no
-  salen del navegador. Limitación: no se comparte entre navegadores ni personas; un caché en el
-  servidor necesitaría una tabla nueva en Supabase. Cambiar `DETECTOR_VERSION`
-  (`lib/client/cache.ts`) invalida todo lo guardado.
+- **Duplicados:** el mismo texto dos veces casi en el mismo lugar (por ejemplo, negrita simulada
+  o un rótulo pegado dos veces) se informa aparte, no como choque.
+
+### Confianza de cada hallazgo
+
+- **Choque vectorial:** la geometría es exacta, así que sólo mide cuánto se pisan:
+  `0,75 + 0,5 × solapamiento`, con tope 0,99. El solapamiento es el área común dividida por el
+  área del texto más chico (un choque necesita al menos 8 %).
+- **Duplicado:** 0,90 fijo.
+- **Cercanía:** 0,50 fijo. No es un error seguro, sino algo para mirar.
+- **IA:** la confianza que declara el modelo (0–1; si no la da, 0,5). Se descarta lo que viene
+  por debajo de 0,5. Si las dos pasadas vieron el mismo choque, suma 0,05, con tope 0,97. Es la
+  opinión del modelo, no una probabilidad medida.
+
+### Caché del navegador y "Volver a analizar"
+
+- El resultado de cada página escaneada que salió bien se guarda en el navegador
+  (`localStorage`). La clave es versión del detector + SHA-256 del PDF + número de página.
+- Si se vuelve a subir el mismo archivo, esa página aparece al instante con la marca **"Resultado
+  guardado"** y la fecha, sin consultar a la IA.
+- **"Volver a analizar"** (junto a esa marca) borra lo guardado de esa página y la consulta de
+  nuevo. "Reintentar", en una página no verificada, hace lo mismo.
+- No se guardan las páginas vectoriales (se analizan en milisegundos) ni las no verificadas.
+- Los resultados no salen del navegador. Limitación: no se comparten entre navegadores ni
+  personas; un caché en el servidor necesitaría una tabla nueva en Supabase. Cambiar
+  `DETECTOR_VERSION` (`lib/client/cache.ts`) invalida todo lo guardado. Si el almacenamiento se
+  llena, se borran las entradas más viejas.
 
 ### Cómo se midió
 
@@ -71,18 +157,31 @@ marcada como **no verificada**, nunca se omite.
 | Páginas | Resultado |
 |---|---|
 | 1–5 (vectoriales) | 7/7 choques, 0 de más |
-| 6 (escaneada, DeepSeek, config. final, 10 corridas) | 29/30 choques, 2 de más, IoU medio 0,93, error de centro 0,3 pt |
+| 6 (escaneada, DeepSeek, antes de los ajustes de consumo, 10 corridas) | 29/30 choques, 2 de más, IoU medio 0,93, error de centro 0,3 pt |
+| 6 (escaneada, configuración actual, 6 corridas) | 17/18 choques, 3 de más (todas en una corrida), IoU medio 0,92–0,93 |
 
-- **Muestras sintéticas:** `npm run muestras` corre los 4 PDFs de `samples/` y muestra, por
-  página, esperado contra detectado y las marcas de más. Compara con `samples/esperados.json` (o,
-  si no está, con `samples/esperados-provisorio.json`, armado mirando los PDFs) y con
-  `samples/expected.json` para el plano de prueba.
-- Scripts para repetir las mediciones:
-  - `scripts/vision-bench.mts`: corridas reales contra el modelo.
-  - `scripts/rescore-bench.mts`: vuelve a puntuar corridas guardadas.
-  - `scripts/calib-synthetic.mts`: calibración de coordenadas con imágenes sintéticas.
-  - `scripts/snap-offline.mts`: ajuste a tinta sin llamar a la API.
-- Los resultados crudos quedan en `bench/`.
+- Los scripts para repetir estas mediciones están en "Scripts de medición", al final.
+
+### Set de muestras y `npm run muestras`
+
+`samples/` tiene 4 PDFs:
+
+| Archivo | Páginas | Qué prueba |
+|---|---|---|
+| `planos-prueba.pdf` | 5 vectoriales + 1 escaneada | Plano del enunciado, con trampas que no deben marcarse |
+| `1-vectorial-A3-y-A4.pdf` | 2 vectoriales (A3 y A4) | Choques, un duplicado y una cercanía a 1 pt |
+| `2-escaneado-solo-imagen.pdf` | 1 escaneada | Los mismos choques, sólo como imagen |
+| `3-mixto-vector-escaneado-limpio.pdf` | vectorial, escaneada, vectorial limpia | Mezcla de tipos y una página sin hallazgos |
+
+- Lo esperado está en `samples/expected.json` (plano de prueba) y en `samples/esperados.json`
+  (los 3 sintéticos). Si este último no está, se usa `samples/esperados-provisorio.json`, armado
+  mirando los PDFs.
+- `npm run muestras` analiza todo y muestra, por página: esperado, detectado, de más, tiempo y
+  costo, con el detalle de lo que falta y lo que sobra. Las páginas escaneadas usan la IA
+  (alrededor de 1 centavo de dólar por página).
+- Criterio: en páginas vectoriales, mismo tipo y mismos textos; en escaneadas, mismo tipo y
+  posición (±10 pt), porque los textos que lee la IA pueden estar mal.
+- La corrida queda en `bench/samples-ultima.json`.
 
 ### Consumo de la IA
 
@@ -106,8 +205,8 @@ configuración, sobre las 3 páginas escaneadas de las muestras. Costo con tarif
   cambios: no hubo respuestas cortadas.
 - **Qué se probó y se descartó:** razonamiento "low" no bajó el costo y sumó marcas de más.
 - **Opción medida, no activada:** `VISION_REASONING=none` apaga el razonamiento. En 8 corridas:
-  costo entre 7 y 9 veces menor (USD 0,0006–0,0018 por página), 4–6 s por página, sin marcas de más e IoU
-  igual en la página 6 (24/24). Pero en 4 de 8 corridas perdió el choque "3.50 × 3.25" del PDF 2,
+  costo entre 7 y 9 veces menor (USD 0,0006–0,0018 por página), 4–6 s por página, sin marcas de
+  más e IoU igual en la página 6 (24/24). Pero en 4 de 8 corridas perdió el choque "3.50 × 3.25" del PDF 2,
   que con razonamiento se encuentra siempre.
 - **Temperatura:** en modo razonamiento DeepSeek ignora `temperature` (según su documentación).
   Por eso las corridas varían aunque se pida 0.
@@ -138,25 +237,28 @@ configuración, sobre las 3 páginas escaneadas de las muestras. Costo con tarif
   2 veces en 18 corridas sobre ESCALERA). Medir la densidad de tinta no sirve para filtrarlo
   (0,33 contra 0,35–0,38 en choques reales).
 - **Variabilidad entre corridas:** el modelo no es determinista (en modo razonamiento ignora
-  `temperature`). El mismo plano puede dar un resultado distinto en otra corrida; en las medidas, 1 de cada 5 corridas
-  pierde un choque o suma una marca. Algunas llamadas fallan o se demoran, y entonces la página
+  `temperature`). El mismo plano puede dar un resultado distinto en otra corrida: en las medidas,
+  1 de cada 5 corridas pierde un choque o suma una marca. Algunas llamadas fallan o se demoran, y entonces la página
   queda "no verificada" y conviene reintentarla.
 - **Páginas escaneadas:** sus resultados son orientativos y conviene confirmarlos a ojo (la
   interfaz lo avisa). Sólo se analiza la imagen más grande de cada página.
-- **Privacidad con Gemini:** existe un proveedor Gemini (`VISION_PROVIDER=gemini`) que todavía no
-  se probó contra la API real. En la **cuota gratuita** de Google AI Studio, Google puede usar las
+- **Gemini es experimental y no está probado:** existe un proveedor (`VISION_PROVIDER=gemini`),
+  pero nunca se corrió contra la API real, porque no hubo clave para hacerlo. En la **cuota gratuita** de Google AI Studio, Google puede usar las
   imágenes enviadas para mejorar sus productos, así que no conviene usarla con planos
   confidenciales. En el plan pago eso no ocurre. Con DeepSeek, los planos también salen a un
   servicio externo.
 - El PDF se envía al servidor en cada página (máximo 4 MB, por el límite de 4,5 MB de Vercel).
 
-## Variables de entorno
+## Scripts de medición (`scripts/`)
 
-| Variable | Uso |
+| Script | Para qué |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Cliente de Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Sólo servidor: escribe el avance del video |
-| `VISION_PROVIDER` | `deepseek` (por defecto) o `gemini` |
-| `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL` | Sólo servidor |
-| `VISION_REASONING` | Vacío (razonamiento por defecto) o `none` para apagarlo (ver "Consumo de la IA") |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | Sólo servidor (opcional) |
+| `run-samples.mts`, `eval-samples.mts` | Corren los PDFs de `samples/` y los comparan con lo esperado (`npm run muestras`) |
+| `consumo.mts` | Llamadas, mosaicos, tokens, tiempo y costo por página escaneada, sobre varias corridas |
+| `eval-detector.mts` | Detector vectorial contra `samples/expected.json` (`npm run eval`) |
+| `vision-bench.mts`, `rescore-bench.mts` | Corridas reales de la página 6 y su puntuación |
+| `calib-synthetic.mts` | Calibración de coordenadas con imágenes sintéticas (respalda no corregir la escala) |
+| `snap-offline.mts` | Ajuste a tinta sin llamar a la API |
+| `diag-coords.mts`, `crop-p6.mts`, `probe-image.mjs`, `dump-text.mjs`, `run-detector.mts` | Diagnósticos puntuales |
+
+Los scripts que llaman a la IA leen las claves de `.env.local`. Los resultados quedan en `bench/`.

@@ -19,8 +19,11 @@ const synthetic = [
   ...(JSON.parse(await readFile(expPath, "utf8")) as { files: ExpFile[] }).files,
   // Las rotadas tienen su propio archivo (lo arma scripts/make-rotated-samples.mts).
   ...(JSON.parse(await readFile("samples/esperados-rotados.json", "utf8")) as { files: ExpFile[] }).files,
+  // Plano real de baja resolución: subtotal aparte, no entra en "originales".
+  ...(JSON.parse(await readFile("samples/esperados-planos-reales.json", "utf8")) as { files: ExpFile[] }).files,
 ];
 const ROTATED = new Set(["4-vectorial-rotado.pdf", "5-cad-rotado.pdf", "6-escaneado-rotado.pdf"]);
+const REAL = new Set(["7-plano-real-limpio-control.pdf", "8-plano-real-con-errores.pdf", "9-plano-real-con-errores-x2-resolucion.pdf"]);
 const legacy = JSON.parse(await readFile("samples/expected.json", "utf8")) as { pages: ExpectedPage[] };
 
 const words = (t: string[]) => new Set(t.join(" ").toUpperCase().split(/[^A-Z0-9=.,:+]+/).filter(Boolean));
@@ -43,7 +46,7 @@ for (const tag of tags) {
   const run = JSON.parse(await readFile(`bench/samples-${tag}.json`, "utf8")) as { file: string; pages: (PageResult & { costUsd?: { peak: number; offPeak: number } })[] }[];
   let tp = 0, fn = 0, fp = 0;
   // Subtotales: los 4 PDFs de siempre por un lado y los rotados por otro.
-  const sub = { originales: { tp: 0, fn: 0, fp: 0 }, rotados: { tp: 0, fn: 0, fp: 0 } };
+  const sub = { originales: { tp: 0, fn: 0, fp: 0 }, rotados: { tp: 0, fn: 0, fp: 0 }, "planos reales": { tp: 0, fn: 0, fp: 0 } };
   const lines: string[] = [];
   for (const f of run) {
     for (const p of f.pages) {
@@ -78,7 +81,7 @@ for (const tag of tags) {
       tp += matched.length;
       fn += missed.length;
       fp += extra.length;
-      const g = sub[ROTATED.has(f.file) ? "rotados" : "originales"];
+      const g = sub[ROTATED.has(f.file) ? "rotados" : REAL.has(f.file) ? "planos reales" : "originales"];
       g.tp += matched.length;
       g.fn += missed.length;
       g.fp += extra.length;

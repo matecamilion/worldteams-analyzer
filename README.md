@@ -115,7 +115,7 @@ El reproductor (`/video`) no deja adelantar ni cambiar la velocidad, pero eso es
   login, a cerrar sesión si la cuenta no está habilitada, o a `/video`) y la API responde 401/403
   sin analizar nada. Ocultar el botón en la interfaz no alcanzaría.
 - **Avance** (`/avance`): todas las personas de la lista de habilitados, con estado (completo, en
-  curso, sin empezar), porcentaje y fechas.
+  curso, no empezó el video), porcentaje y fechas.
 
 ## Cómo detecta
 

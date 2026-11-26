@@ -15,7 +15,7 @@ const fecha = new Intl.DateTimeFormat("es-AR", {
 const ESTADO: Record<ProgressEntry["status"], { label: string; className: string }> = {
   completo: { label: "Completo", className: "bg-ok/10 text-ok" },
   en_curso: { label: "En curso", className: "bg-cercania-suave text-cercania" },
-  sin_empezar: { label: "Nunca ingresó", className: "bg-linea/60 text-gris" },
+  sin_empezar: { label: "No empezó el video", className: "bg-linea/60 text-gris" },
 };
 
 export default async function AvancePage() {
@@ -31,7 +31,7 @@ export default async function AvancePage() {
         <h1 className="font-display text-2xl font-semibold">Avance del video de inducción</h1>
         <p className="mt-2 text-gris">
           {done} de {list.length} {list.length === 1 ? "persona habilitada lo completó" : "personas habilitadas lo completaron"}. La lista
-          incluye a quienes todavía no ingresaron.
+          incluye a quienes todavía no empezaron el video.
         </p>
 
         <div className="mt-6 overflow-x-auto rounded-lg border border-linea bg-hoja">

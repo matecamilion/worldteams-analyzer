@@ -2,7 +2,8 @@
 
 Herramienta web para revisar planos en PDF: marca dónde hay **textos encimados** (choques),
 rótulos repetidos en el mismo lugar (duplicados) y textos que casi se tocan (cercanías). Cada
-hallazgo se ve sobre el plano y en una lista, y se puede descargar como CSV.
+hallazgo se ve sobre el plano y en una lista, y se puede descargar el PDF original con los
+hallazgos marcados.
 
 Para usarla hay que entrar con una cuenta de Google **habilitada** y ver completo el **video de
 inducción**: las dos condiciones se verifican en el servidor. Una tercera pantalla, **Avance**,
@@ -116,6 +117,33 @@ El reproductor (`/video`) no deja adelantar ni cambiar la velocidad, pero eso es
   sin analizar nada. Ocultar el botón en la interfaz no alcanzaría.
 - **Avance** (`/avance`): todas las personas de la lista de habilitados, con estado (completo, en
   curso, no empezó el video), porcentaje y fechas.
+
+## Descargar el PDF con marcas
+
+Cuando termina el análisis, **Descargar PDF con marcas** baja `<nombre-original>-con-marcas.pdf`:
+el mismo PDF que se subió, con una caja por hallazgo y una hoja de resumen al final. Se arma
+entero en el navegador con [pdf-lib](https://github.com/Hopding/pdf-lib) (licencia MIT, se carga
+recién al apretar el botón); el PDF marcado no pasa por el servidor.
+
+- **Cajas:** mismo estilo que en pantalla: choque en rojo, duplicado en gris, cercanía en ámbar
+  con línea punteada; relleno semitransparente y el número de la lista en un círculo en la
+  esquina superior izquierda. Grosor y número son proporcionales al lado corto de la hoja (en A4
+  ≈ 1,1 pt y A3 ≈ 1,5 pt), y una caja muy chica se agranda hasta un mínimo para que se vea. Con
+  "Mostrar cercanías" apagado, las cercanías no se dibujan ni se listan.
+- **Resumen:** nombre del archivo, fecha, cantidad de choques, duplicados y cercanías, páginas no
+  verificadas (con el motivo) y la lista de hallazgos con número, página, zona y textos. Los
+  textos de páginas escaneadas van rotulados "texto leído por IA (aproximado)". Sólo usa
+  caracteres de Helvetica estándar (WinAnsi): una letra fuera de ese juego pierde el acento y un
+  símbolo se cambia por "?".
+- **Coordenadas:** las cajas del detector están en pt con origen arriba a la izquierda, en el
+  espacio en que pdf.js dibuja la página (`getViewport({ scale: 1 })`). Para pasarlas al PDF se
+  invierte esa misma matriz, armada con la caja visible de la página (`view`, CropBox ∩ MediaBox,
+  con su origen) y con `/Rotate`; `tests/marked-pdf.test.mts` la compara con la de pdf.js en las
+  cuatro rotaciones y con origen distinto de cero. Las cajas de páginas escaneadas salen de la
+  caja normalizada (0–1) escalada al tamaño de la página, igual que en pantalla.
+- **El texto original sigue seleccionable:** las marcas se agregan en un flujo de contenido aparte,
+  sin tocar el de la página. Los números de los círculos son texto, así que también aparecen al
+  buscar o copiar.
 
 ## Cómo detecta
 
@@ -284,6 +312,10 @@ configuración, sobre las 3 páginas escaneadas de las muestras. Costo con tarif
   confidenciales. En el plan pago eso no ocurre. Con DeepSeek, los planos también salen a un
   servicio externo.
 - El PDF se envía al servidor en cada página (máximo 4 MB, por el límite de 4,5 MB de Vercel).
+- **Páginas rotadas o con caja de página corrida:** el detector calcula las cajas sin tener en
+  cuenta `/Rotate` ni el origen de la MediaBox/CropBox (en los planos de prueba no aparecen). En
+  esas páginas las marcas, en pantalla y en el PDF descargado, pueden quedar corridas o giradas
+  respecto del texto. La conversión al PDF sí las contempla; lo que falta es el detector.
 
 ## Scripts de medición (`scripts/`)
 

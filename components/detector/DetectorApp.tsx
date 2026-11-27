@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { forgetCachedPage, getCachedPage, hashPdf, putCachedPage } from "@/lib/client/cache";
+import { recordFinishedRun, type PageOutcome } from "@/lib/client/historial";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
 import { numberFindings, summarize } from "@/lib/detector/report";
 import type { PageResult } from "@/lib/detector/types";
@@ -85,13 +86,23 @@ export function DetectorApp() {
   const setPage = (page: number, patch: Partial<PageEntry>) =>
     setPages((prev) => prev.map((p) => (p.page === page ? { ...p, ...patch } : p)));
 
-  const analyze = useCallback(async (doc: PDFDocumentProxy, bytes: ArrayBuffer, hash: string | null, page: number, run: number, useCache = true) => {
+  /** Corridas ya registradas en "Mi actividad": nunca dos veces la misma (aunque React re-renderice). */
+  const recordedRuns = useRef(new Set<number>());
+
+  const analyze = useCallback(async (
+    doc: PDFDocumentProxy,
+    bytes: ArrayBuffer,
+    hash: string | null,
+    page: number,
+    run: number,
+    useCache = true,
+  ): Promise<PageOutcome | null> => {
     const scanned = await looksScanned(doc, page);
     // Página escaneada ya analizada en este navegador: se reutiliza sin llamar a la IA.
     const cached = scanned && hash && useCache ? getCachedPage(hash, page) : null;
     if (cached) {
       if (run === runId.current) setPage(page, { status: "ok", scanned, result: cached.result, cachedAt: cached.savedAt });
-      return;
+      return { result: cached.result, fromCache: true };
     }
     setPage(page, { status: "analizando", scanned, cachedAt: undefined });
     let result: PageResult | null = null;
@@ -103,9 +114,10 @@ export function DetectorApp() {
         if (!err.retryable || attempt === AUTO_RETRIES) result = unverified(page, err.message);
       }
     }
-    if (run !== runId.current) return; // Se subió otro archivo mientras tanto.
+    if (run !== runId.current) return null; // Se subió otro archivo mientras tanto.
     if (hash) putCachedPage(hash, page, result!);
     setPage(page, { status: result!.status === "ok" ? "ok" : "no_verificada", result: result! });
+    return { result: result!, fromCache: false };
   }, []);
 
   const start = useCallback(
@@ -129,11 +141,21 @@ export function DetectorApp() {
         setOpening(false);
         setRunning(true);
         // Página por página: cada request entra holgado en el límite de duración de Vercel.
+        const outcomes: PageOutcome[] = [];
         for (let n = 1; n <= doc.numPages; n++) {
           if (run !== runId.current) return;
-          await analyze(doc, bytes, hash, n, run);
+          const outcome = await analyze(doc, bytes, hash, n, run);
+          if (outcome) outcomes.push(outcome);
         }
-        if (run === runId.current) setRunning(false);
+        if (run === runId.current) {
+          setRunning(false);
+          // "Mi actividad": una sola vez por corrida, sin esperar y sin errores visibles. Los
+          // reintentos de una página y los resultados del caché no se registran.
+          if (!recordedRuns.current.has(run)) {
+            recordedRuns.current.add(run);
+            void recordFinishedRun(file.name, outcomes, doc.numPages);
+          }
+        }
       } catch {
         setOpening(false);
         setUploadError(`No se pudo abrir "${file.name}". Puede estar dañado o protegido con contraseña.`);

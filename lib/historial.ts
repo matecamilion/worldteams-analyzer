@@ -5,11 +5,9 @@
 // Sólo metadatos: nombre del archivo y conteos. Nunca el PDF, sus textos ni los de los hallazgos.
 import { z } from "zod";
 import type { ToolAccess } from "./guard";
+import { cleanFileName, MAX_FILE_NAME, MAX_PAGES } from "./historial-limits";
 
-/** Largo máximo del nombre del archivo (igual que el check de la tabla). */
-export const MAX_FILE_NAME = 255;
-/** Tope de páginas (igual que el check de la tabla). */
-export const MAX_PAGES = 5000;
+export { cleanFileName, MAX_FILE_NAME, MAX_PAGES };
 const MAX_COUNT = 1_000_000;
 /** Un cuerpo válido mide unos 300 bytes; más que esto se rechaza sin leerlo. */
 export const MAX_BODY_BYTES = 2048;
@@ -21,11 +19,6 @@ export const RATE_LIMITS = [
 ] as const;
 
 const count = (max: number) => z.number().int().min(0).max(max);
-
-/** Saca caracteres de control y espacios de más; el nombre se guarda tal como se ve. */
-export function cleanFileName(name: string): string {
-  return name.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").replace(/\s+/g, " ").trim();
-}
 
 export const historyEntrySchema = z
   .object({

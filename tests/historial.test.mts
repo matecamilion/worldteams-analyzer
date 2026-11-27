@@ -78,7 +78,7 @@ test("valida tipos, rangos y campos de más", async () => {
     { ...valid, nombre_archivo: "a".repeat(256) },
     { ...valid, hallazgos: ["COCINA × LAVADERO"] },
     { ...valid, textos: "TEXTO A" },
-    (({ choques: _, ...rest }) => rest)(valid),
+    Object.fromEntries(Object.entries(valid).filter(([k]) => k !== "choques")),
     [valid],
     null,
   ];

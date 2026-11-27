@@ -17,13 +17,17 @@ type Props = {
   showNear: boolean;
   onToggleNear: (v: boolean) => void;
   onSelect: (id: string) => void;
+  /** "Está bien": descarta el hallazgo (se puede deshacer). */
+  onDismiss: (id: string) => void;
+  /** Borra un error marcado a mano. */
+  onRemoveMark: (id: string) => void;
   onRetry: (page: number) => void;
 };
 
 // Espacio no separable: el "%" no queda solo en otro renglón.
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
-export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onToggleNear, onSelect, onRetry }: Props) {
+export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onToggleNear, onSelect, onDismiss, onRemoveMark, onRetry }: Props) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-linea px-4 py-3">
@@ -99,7 +103,7 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                           type="button"
                           onClick={() => onSelect(f.id)}
                           aria-current={selected ? "true" : undefined}
-                          className={`grid w-full grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-2.5 text-left hover:bg-papel ${
+                          className={`grid w-full grid-cols-[auto_1fr_auto] items-start gap-3 px-4 pt-2.5 pb-1 text-left hover:bg-papel ${
                             selected ? "bg-papel shadow-[inset_3px_0_0_var(--color-verde)]" : ""
                           }`}
                         >
@@ -109,7 +113,9 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                             {f.n}
                           </span>
                           <span className="min-w-0">
-                            <span className="block text-sm font-semibold break-words">{f.texts.join(" × ") || "Textos ilegibles"}</span>
+                            <span className="block text-sm font-semibold break-words">
+                              {f.source === "manual" ? f.note || "Marcado a mano" : f.texts.join(" × ") || "Textos ilegibles"}
+                            </span>
                             {f.source === "vision" && <span className="block text-xs text-gris italic">{AI_TEXT_NOTE_CAP}</span>}
                             <span className="mt-0.5 block text-xs text-gris">
                               <span className={f.severity === "choque" ? "font-semibold text-choque" : f.severity === "cercania" ? "font-semibold text-cercania" : ""}>
@@ -119,7 +125,12 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                               {f.zone}
                             </span>
                             <span className="mt-0.5 block text-xs text-gris">
-                              {f.originLabel} · confianza <span className="num">{pct(f.confidence)}</span>
+                              {f.originLabel}
+                              {f.source !== "manual" && (
+                                <>
+                                  {" · "}confianza <span className="num">{pct(f.confidence)}</span>
+                                </>
+                              )}
                             </span>
                           </span>
                           {crops[f.id] ? (
@@ -133,6 +144,27 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                             <span className="h-14 w-24 animate-pulse rounded-sm bg-linea/60" aria-hidden />
                           )}
                         </button>
+                        <div className={`flex justify-end px-4 pb-2 ${selected ? "bg-papel shadow-[inset_3px_0_0_var(--color-verde)]" : ""}`}>
+                          {f.source === "manual" ? (
+                            <button
+                              type="button"
+                              onClick={() => onRemoveMark(f.id)}
+                              aria-label={`Borrar la marca a mano ${f.n}`}
+                              className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 text-xs font-medium hover:bg-papel"
+                            >
+                              Borrar marca
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onDismiss(f.id)}
+                              aria-label={`Hallazgo ${f.n} está bien: descartarlo`}
+                              className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 text-xs font-medium hover:bg-papel"
+                            >
+                              Está bien
+                            </button>
+                          )}
+                        </div>
                       </li>
                     );
                   })}

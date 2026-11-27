@@ -1,4 +1,4 @@
--- Esquema de Supabase del Revisor de planos (estado final, incluida la migración 20261126).
+-- Esquema de Supabase del Revisor de planos (estado final, incluidas las migraciones 20261126 y 20261127).
 --
 -- Para un proyecto nuevo: pegar entero en el SQL Editor y ejecutar. Es idempotente.
 -- Después: cambiar los correos de ejemplo de la sección 6 y subir el video (sección 5).
@@ -9,6 +9,8 @@
 --
 -- Modelo de seguridad: la app sólo toca estas tablas desde el servidor, con la clave service_role
 -- (que saltea RLS). anon y authenticated no tienen ningún permiso: RLS activo y sin políticas.
+-- Única excepción: public.analisis (4b), que cada persona habilitada lee (sólo sus filas) con su
+-- sesión; tampoco ahí se escribe desde el navegador.
 
 begin;
 
@@ -147,10 +149,52 @@ begin
 end;
 $function$;
 
-revoke all on function public.is_allowed() from public, anon, authenticated;
-grant execute on function public.is_allowed() to service_role;
+-- authenticated la ejecuta al evaluar la política de public.analisis (sección 4b): sólo responde
+-- por el correo de su propia sesión.
+revoke all on function public.is_allowed() from public, anon;
+grant execute on function public.is_allowed() to authenticated, service_role;
 revoke all on function public.record_heartbeat(text, uuid, numeric, numeric) from public, anon, authenticated;
 grant execute on function public.record_heartbeat(text, uuid, numeric, numeric) to service_role;
+
+-- 4b) Historial de análisis ("Mi actividad") -------------------------------------------------
+-- SÓLO metadatos: ni el PDF, ni sus textos, ni el texto de los hallazgos. Lee cada persona
+-- habilitada sus filas (RLS por el email del JWT); inserta sólo el servidor (service_role) desde
+-- POST /api/historial. Ver supabase/migrations/20261127_historial_analisis.sql.
+create table if not exists public.analisis (
+  id                     uuid primary key default gen_random_uuid(),
+  email                  text not null references public.allowed_emails(email) on delete cascade,
+  nombre_archivo         text not null,
+  paginas                integer not null,
+  paginas_escaneadas     integer not null default 0,
+  choques                integer not null default 0,
+  duplicados             integer not null default 0,
+  cercanias              integer not null default 0,
+  paginas_no_verificadas integer not null default 0,
+  creado_en              timestamptz not null default now(),
+  constraint analisis_email_minusculas  check (email = lower(email)),
+  constraint analisis_nombre_largo      check (char_length(nombre_archivo) between 1 and 255),
+  constraint analisis_paginas           check (paginas between 1 and 5000),
+  constraint analisis_escaneadas        check (paginas_escaneadas between 0 and paginas),
+  constraint analisis_no_verificadas    check (paginas_no_verificadas between 0 and paginas),
+  constraint analisis_conteos           check (choques between 0 and 1000000
+                                               and duplicados between 0 and 1000000
+                                               and cercanias between 0 and 1000000)
+);
+create index if not exists analisis_email_creado_en on public.analisis (email, creado_en desc);
+
+alter table public.analisis enable row level security;
+revoke all on table public.analisis from public, anon, authenticated;
+grant select on table public.analisis to authenticated;
+grant select, insert on table public.analisis to service_role;
+
+drop policy if exists analisis_leer_propias on public.analisis;
+create policy analisis_leer_propias on public.analisis
+  for select
+  to authenticated
+  using (
+    email = lower(coalesce(auth.jwt() ->> 'email', ''))
+    and public.is_allowed()
+  );
 
 -- 5) Bucket público del video ----------------------------------------------------------------
 -- El archivo se sube a mano: Storage → video → worldteams-intro.mp4 (lib/video.ts → VIDEO_OBJECT).

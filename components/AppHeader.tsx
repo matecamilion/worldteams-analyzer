@@ -5,6 +5,7 @@ const NAV = [
   { href: "/detector", label: "Detector" },
   { href: "/video", label: "Video" },
   { href: "/avance", label: "Avance" },
+  { href: "/historial", label: "Mi actividad" },
 ];
 
 export function AppHeader({ current, email }: { current?: string; email?: string }) {
@@ -16,13 +17,13 @@ export function AppHeader({ current, email }: { current?: string; email?: string
           <Image src="/logo-crema.svg" alt="WorldTeams" width={112} height={22} priority />
           <span className="hidden border-l border-papel/25 pl-3 font-display text-sm font-medium md:inline">Revisor de planos</span>
         </Link>
-        <nav aria-label="Principal" className="order-last -ml-2.5 flex w-full gap-1 sm:order-none sm:ml-0 sm:w-auto">
+        <nav aria-label="Principal" className="order-last -ml-2.5 flex w-full gap-0.5 overflow-x-auto sm:order-none sm:ml-0 sm:w-auto sm:gap-1">
           {NAV.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               aria-current={current === item.href ? "page" : undefined}
-              className="rounded px-2.5 py-1.5 text-sm text-papel/80 hover:text-papel aria-[current=page]:bg-papel/10 aria-[current=page]:text-papel focus-visible:outline-lima sm:px-3"
+              className="shrink-0 rounded px-2 py-1.5 text-sm whitespace-nowrap text-papel/80 hover:text-papel aria-[current=page]:bg-papel/10 aria-[current=page]:text-papel focus-visible:outline-lima sm:px-3"
             >
               {item.label}
             </Link>

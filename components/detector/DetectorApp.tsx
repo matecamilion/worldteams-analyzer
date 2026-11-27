@@ -7,7 +7,7 @@ import { recordFinishedRun, type PageOutcome } from "@/lib/client/historial";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
 import { loadReview, saveReview } from "@/lib/client/review-store";
 import { PAGINAS_EN_PARALELO, runPages, type PageAttempt } from "@/lib/client/run-pages";
-import { applyReview, dismiss, restore, type Review } from "@/lib/detector/review";
+import { addManual, applyReview, dismiss, removeManual, restore, setManualNote, type Review } from "@/lib/detector/review";
 import { numberFindings, summarize } from "@/lib/detector/report";
 import type { PageResult } from "@/lib/detector/types";
 import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
@@ -350,6 +350,27 @@ export function DetectorApp() {
     changeReview(dismiss(review, f));
     if (selectedId === id) setSelectedId(null);
   };
+  /** Recuadro dibujado a mano: se guarda como un choque "Marcado a mano" y queda seleccionado. */
+  const addMark = (page: number, box: { x: number; y: number; w: number; h: number }, size: { w: number; h: number }) => {
+    const { review: next, findingId } = addManual(review, page, box, size);
+    changeReview(next);
+    setSelectedId(findingId);
+  };
+  /** Marca a mano a partir del id del hallazgo: p{página}-manual-{id}. */
+  const markOf = (findingId: string) => {
+    const f = findings.find((x) => x.id === findingId && x.source === "manual");
+    return f ? { page: f.page, markId: findingId.slice(`p${f.page}-manual-`.length) } : null;
+  };
+  const removeMark = (findingId: string) => {
+    const m = markOf(findingId);
+    if (!m) return;
+    changeReview(removeManual(review, m.page, m.markId));
+    if (selectedId === findingId) setSelectedId(null);
+  };
+  const noteMark = (findingId: string, note: string) => {
+    const m = markOf(findingId);
+    if (m) changeReview(setManualNote(review, m.page, m.markId, note));
+  };
   const undoReview = () => {
     const prev = undoStack.at(-1);
     if (!prev) return;
@@ -420,10 +441,12 @@ export function DetectorApp() {
 
           {(reviewed.dismissed.length > 0 || undoStack.length > 0) && (
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-gris" aria-live="polite">
-                <span className="num font-semibold text-tinta">{reviewed.dismissed.length}</span>{" "}
-                {reviewed.dismissed.length === 1 ? "descartado" : "descartados"}
-              </span>
+              {reviewed.dismissed.length > 0 && (
+                <span className="text-gris" aria-live="polite">
+                  <span className="num font-semibold text-tinta">{reviewed.dismissed.length}</span>{" "}
+                  {reviewed.dismissed.length === 1 ? "descartado" : "descartados"}
+                </span>
+              )}
               {reviewed.dismissed.length > 0 && (
                 <button
                   type="button"
@@ -516,6 +539,9 @@ export function DetectorApp() {
               zoom={zoom}
               onSelect={select}
               onDismiss={markOk}
+              onMark={addMark}
+              onRemoveMark={removeMark}
+              onNote={noteMark}
               onCrops={onCrops}
               onRetry={() => retry(p.page)}
               onZoomChange={onZoomChange}
@@ -534,6 +560,7 @@ export function DetectorApp() {
               onToggleNear={setShowNear}
               onSelect={select}
               onDismiss={markOk}
+              onRemoveMark={removeMark}
               onRetry={retry}
             />
           </div>

@@ -255,6 +255,10 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
     bold,
   );
   y -= 4;
+  const manual = input.findings.filter((f) => f.source === "manual").length;
+  if (manual > 0) {
+    para(`${plural(manual, "error marcado", "errores marcados")} a mano por el usuario (se cuentan como choques).`, 9.5, regular, GRAY);
+  }
   if (input.dismissedCount > 0) {
     para(
       `${plural(input.dismissedCount, "hallazgo descartado", "hallazgos descartados")} por el usuario (${input.dismissedCount === 1 ? "marcado" : "marcados"} como "Está bien"): no se ${input.dismissedCount === 1 ? "cuenta ni se marca" : "cuentan ni se marcan"}.`,
@@ -304,7 +308,9 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
     const lh = size * 1.35;
     for (const f of listed) {
       const zone = wrap(toWinAnsi(f.zone), regular, size, col.texts - col.zone - 10);
-      const texts = wrap(toWinAnsi(f.texts.join(" / ") || "Textos ilegibles"), regular, size, colEnd - col.texts);
+      // Marcado a mano: no tiene textos; va la etiqueta y la nota, si hay.
+      const shown = f.source === "manual" ? `Marcado a mano${f.note ? `: ${f.note}` : ""}` : f.texts.join(" / ") || "Textos ilegibles";
+      const texts = wrap(toWinAnsi(shown), regular, size, colEnd - col.texts);
       const note = f.source === "vision" ? wrap(toWinAnsi(AI_TEXT_NOTE), italic, size - 1, colEnd - col.texts) : [];
       const rows = Math.max(zone.length, texts.length + note.length);
       ensure(rows * lh + 6);

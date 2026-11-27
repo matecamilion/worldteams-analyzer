@@ -48,8 +48,9 @@ export type Finding = {
   confidence: number;
   /** Máximo solape relativo entre los textos de la zona (0–1); sólo páginas vectoriales. */
   overlapRatio?: number;
-  source: "vector" | "vision";
-  /** Etiqueta para mostrar y exportar: "Texto del PDF" o "Detectado por IA". */
+  /** "manual": lo marcó la persona con un recuadro (no tiene textos; puede tener una nota). */
+  source: "vector" | "vision" | "manual";
+  /** Etiqueta para mostrar y exportar: "Texto del PDF", "Detectado por IA" o "Marcado a mano". */
   originLabel: string;
   provider?: string;
   /** Pasadas de visión que vieron este choque ("mosaicos", "pagina"). */
@@ -60,9 +61,11 @@ export type Finding = {
   inkSnapped?: boolean;
   /** Caja original del modelo antes del ajuste a tinta (para auditar y volver a medir). */
   modelBox?: Rect;
+  /** Nota que escribió la persona (sólo hallazgos marcados a mano). */
+  note?: string;
 };
 
-export const ORIGIN_LABEL = { vector: "Texto del PDF", vision: "Detectado por IA" } as const;
+export const ORIGIN_LABEL = { vector: "Texto del PDF", vision: "Detectado por IA", manual: "Marcado a mano" } as const;
 
 export type PageKind = "vector" | "image" | "empty";
 

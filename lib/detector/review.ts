@@ -1,12 +1,16 @@
-// Revisión del usuario sobre los hallazgos: lo que marcó como "Está bien" (descartado).
+// Revisión del usuario sobre los hallazgos: lo que marcó como "Está bien" (descartado) y los
+// errores que marcó a mano con un recuadro.
 // Puro y sin DOM: lo usan la pantalla, el PDF con marcas y los tests. No cambia los resultados
 // del análisis (ni la caché): se aplica encima, cada vez que se muestran o exportan.
 import type { Rect } from "./geometry";
-import type { Finding, PageResult, Severity } from "./types";
+import { ORIGIN_LABEL, type Finding, type PageResult, type Severity } from "./types";
+import { sectorName } from "./zones";
 
 /** Un hallazgo que la persona marcó como "Está bien". `firma` empieza con "vector:" o "ia:". */
 export type Dismissal = { firma: string; tipo: Severity; boxNorm: Rect; textos: string[]; fecha: string };
-export type PageReview = { descartados: Dismissal[] };
+/** Un error marcado a mano: `box` en pt de la página visible (origen arriba-izquierda), como los demás. */
+export type ManualMark = { id: string; box: Rect; boxNorm: Rect; nota?: string; fecha: string };
+export type PageReview = { descartados: Dismissal[]; manuales?: ManualMark[] };
 /** Revisión de un PDF, por número de página. */
 export type Review = Record<number, PageReview>;
 
@@ -20,6 +24,9 @@ export type Review = Record<number, PageReview>;
 export const IOU_MIN = 0.6;
 /** Tope de descartes por página: se borran los más viejos. */
 export const MAX_DISMISSED_PER_PAGE = 300;
+/** Tope de marcas a mano por página y largo máximo de la nota. */
+export const MAX_MANUAL_PER_PAGE = 200;
+export const MAX_NOTE = 200;
 
 const round = (v: number) => v.toFixed(4);
 const center = (r: Rect) => [r.x + r.w / 2, r.y + r.h / 2];
@@ -50,11 +57,13 @@ export function iou(a: Rect, b: Rect): number {
 
 /** Marca un hallazgo como "Está bien". Devuelve una revisión nueva (no modifica la anterior). */
 export function dismiss(review: Review, f: Finding, now = new Date()): Review {
+  if (f.source === "manual") return review; // una marca a mano se borra, no se descarta
   const page = review[f.page] ?? { descartados: [] };
   const firma = signatureOf(f);
-  if (page.descartados.some((d) => d.firma === firma)) return review;
+  const previous = page.descartados ?? [];
+  if (previous.some((d) => d.firma === firma)) return review;
   const entry: Dismissal = { firma, tipo: f.severity, boxNorm: { ...f.boxNorm }, textos: [...f.texts], fecha: now.toISOString() };
-  const descartados = [...page.descartados, entry].slice(-MAX_DISMISSED_PER_PAGE);
+  const descartados = [...previous, entry].slice(-MAX_DISMISSED_PER_PAGE);
   return { ...review, [f.page]: { ...page, descartados } };
 }
 
@@ -62,7 +71,72 @@ export function dismiss(review: Review, f: Finding, now = new Date()): Review {
 export function restore(review: Review, page: number, firma: string): Review {
   const p = review[page];
   if (!p) return review;
-  return { ...review, [page]: { ...p, descartados: p.descartados.filter((d) => d.firma !== firma) } };
+  return { ...review, [page]: { ...p, descartados: (p.descartados ?? []).filter((d) => d.firma !== firma) } };
+}
+
+const emptyPage = (): PageReview => ({ descartados: [] });
+const manualId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+
+/** Id del hallazgo que se muestra para una marca a mano. */
+export const manualFindingId = (page: number, markId: string) => `p${page}-manual-${markId}`;
+
+/** Agrega un error marcado a mano. `box` en pt y `page` = tamaño de la hoja en pt (ya rotada). */
+export function addManual(
+  review: Review,
+  pageNumber: number,
+  box: Rect,
+  page: { w: number; h: number },
+  opts: { id?: string; nota?: string; now?: Date } = {},
+): { review: Review; findingId: string } {
+  const id = opts.id ?? manualId();
+  const p = review[pageNumber] ?? emptyPage();
+  const nota = opts.nota?.trim().slice(0, MAX_NOTE);
+  const mark: ManualMark = {
+    id,
+    box: { ...box },
+    boxNorm: { x: box.x / page.w, y: box.y / page.h, w: box.w / page.w, h: box.h / page.h },
+    ...(nota ? { nota } : {}),
+    fecha: (opts.now ?? new Date()).toISOString(),
+  };
+  const manuales = [...(p.manuales ?? []), mark].slice(-MAX_MANUAL_PER_PAGE);
+  return { review: { ...review, [pageNumber]: { ...p, manuales } }, findingId: manualFindingId(pageNumber, id) };
+}
+
+/** Borra una marca a mano. */
+export function removeManual(review: Review, pageNumber: number, markId: string): Review {
+  const p = review[pageNumber];
+  if (!p?.manuales?.some((m) => m.id === markId)) return review;
+  return { ...review, [pageNumber]: { ...p, manuales: p.manuales.filter((m) => m.id !== markId) } };
+}
+
+/** Cambia la nota de una marca a mano (vacía: sin nota). */
+export function setManualNote(review: Review, pageNumber: number, markId: string, nota: string): Review {
+  const p = review[pageNumber];
+  const clean = nota.trim().slice(0, MAX_NOTE);
+  if (!p?.manuales?.some((m) => m.id === markId && (m.nota ?? "") !== clean)) return review;
+  const manuales = p.manuales.map((m) => {
+    if (m.id !== markId) return m;
+    const { nota: _old, ...rest } = m; // eslint-disable-line @typescript-eslint/no-unused-vars
+    return clean ? { ...rest, nota: clean } : rest;
+  });
+  return { ...review, [pageNumber]: { ...p, manuales } };
+}
+
+/** La marca a mano como hallazgo: un choque, con la caja que dibujó la persona. */
+function manualFinding(pageNumber: number, m: ManualMark, page: { width: number; height: number }): Finding {
+  return {
+    id: manualFindingId(pageNumber, m.id),
+    page: pageNumber,
+    severity: "choque",
+    box: { ...m.box },
+    boxNorm: { ...m.boxNorm },
+    texts: [],
+    zone: page.width > 0 && page.height > 0 ? sectorName(m.box, page) : "marcado en la hoja",
+    confidence: 1,
+    source: "manual",
+    originLabel: ORIGIN_LABEL.manual,
+    ...(m.nota ? { note: m.nota } : {}),
+  };
 }
 
 export type DismissedFinding = Finding & { firma: string };
@@ -81,7 +155,10 @@ export type ReviewedPages = {
  */
 export function applyReview(results: PageResult[], review: Review): ReviewedPages {
   const dismissed: DismissedFinding[] = [];
-  const pages = results.map((p) => {
+  const pages = results.map((r) => {
+    const manuales = review[r.page]?.manuales ?? [];
+    // Las marcas a mano se suman a los hallazgos de la página; nunca se ocultan con un descarte.
+    const p = manuales.length ? { ...r, findings: [...r.findings, ...manuales.map((m) => manualFinding(r.page, m, r))] } : r;
     const rules = review[p.page]?.descartados ?? [];
     if (!rules.length || !p.findings.length) return p;
     const hidden = new Map<string, string>(); // id del hallazgo → firma del descarte
@@ -119,4 +196,8 @@ export function applyReview(results: PageResult[], review: Review): ReviewedPage
 }
 
 /** Cantidad total de descartes guardados (aplicados o no). */
-export const countDismissals = (review: Review) => Object.values(review).reduce((n, p) => n + p.descartados.length, 0);
+export const countDismissals = (review: Review) => Object.values(review).reduce((n, p) => n + (p.descartados?.length ?? 0), 0);
+
+/** La revisión no tiene nada (para no guardar claves vacías). */
+export const isEmptyReview = (review: Review) =>
+  Object.values(review).every((p) => !p.descartados?.length && !p.manuales?.length);

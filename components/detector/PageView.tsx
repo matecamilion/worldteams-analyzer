@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { NumberedFinding } from "@/lib/detector/report";
 import { SEVERITY_LABEL } from "@/lib/detector/report";
+import { MAX_NOTE } from "@/lib/detector/review";
 import { LOW_RES_WARNING, type PageResult } from "@/lib/detector/types";
 import {
   clampView,
+  dragToPageBox,
   fullView,
   interpolate,
   panBy,
@@ -39,6 +41,12 @@ type Props = {
   onSelect: (id: string) => void;
   /** "Está bien" sobre el hallazgo seleccionado: lo descarta (se puede deshacer). */
   onDismiss: (id: string) => void;
+  /** Recuadro dibujado en modo "Marcar error": caja en pt y tamaño de la hoja en pt. */
+  onMark: (page: number, box: Box, pageSize: { w: number; h: number }) => void;
+  /** Borra una marca a mano (por id del hallazgo). */
+  onRemoveMark: (id: string) => void;
+  /** Cambia la nota de una marca a mano. */
+  onNote: (id: string, note: string) => void;
   onCrops: (crops: Record<string, string>) => void;
   onRetry: () => void;
   /** El usuario tocó el zoom a mano (pellizco, arrastre, rueda) o pidió la página completa. */
@@ -69,6 +77,9 @@ export function PageView({
   zoom,
   onSelect,
   onDismiss,
+  onMark,
+  onRemoveMark,
+  onNote,
   onCrops,
   onRetry,
   onZoomChange,
@@ -85,6 +96,10 @@ export function PageView({
   /** Vista para la que está dibujado el canvas nítido (si no coincide con la actual, se oculta). */
   const [detailView, setDetailView] = useState<View | null>(null);
   const [moving, setMoving] = useState(false);
+  /** Modo "Marcar error": arrastrar dibuja un recuadro en vez de mover el plano. */
+  const [marking, setMarking] = useState(false);
+  /** Recuadro que se está dibujando, en px dentro del marco. */
+  const [draft, setDraft] = useState<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
   const viewRef = useRef<View | null>(null);
   const animRef = useRef<number | null>(null);
   const settleRef = useRef<number | null>(null);
@@ -276,12 +291,30 @@ export function PageView({
     return { x: e.clientX - r.left, y: e.clientY - r.top };
   };
 
+  /** Captura el puntero para seguir el arrastre fuera del marco (puede fallar si el puntero ya no existe). */
+  const capture = (e: React.PointerEvent) => {
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Sin captura el gesto sigue igual mientras el puntero esté sobre el marco.
+    }
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (!frame) return;
     pointers.current.set(e.pointerId, local(e));
     gesture.current = { dragging: false, startX: e.clientX, startY: e.clientY, pinchDist: null };
     suppressClick.current = false;
+    if (marking && pointers.current.size === 1) {
+      // Modo "Marcar error": un dedo o el mouse empiezan un recuadro.
+      const p = local(e);
+      setDraft({ a: p, b: p });
+      capture(e);
+      return;
+    }
     if (pointers.current.size === 2) {
+      setDraft(null); // el segundo dedo es un pellizco: se descarta el recuadro
+      suppressClick.current = true;
       const [a, b] = [...pointers.current.values()];
       gesture.current.pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
       stopAnimation();
@@ -296,6 +329,10 @@ export function PageView({
     pointers.current.set(e.pointerId, cur);
     const v = viewRef.current ?? fullView(pageSize);
 
+    if (marking && draft && pointers.current.size === 1) {
+      setDraft({ a: draft.a, b: cur });
+      return;
+    }
     if (pointers.current.size === 2 && gesture.current.pinchDist) {
       const [a, b] = [...pointers.current.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
@@ -306,20 +343,31 @@ export function PageView({
       onZoomChange(pageNumber, true);
       return;
     }
-    if (pointers.current.size !== 1 || v.s <= 1.01) return;
+    if (marking || pointers.current.size !== 1 || v.s <= 1.01) return;
     if (!gesture.current.dragging) {
       if (Math.hypot(e.clientX - gesture.current.startX, e.clientY - gesture.current.startY) < 5) return;
       gesture.current.dragging = true;
       suppressClick.current = true;
       stopAnimation();
       setMoving(true);
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      capture(e);
     }
     applyView(panBy(v, cur.x - prev.x, cur.y - prev.y, pageSize, frame));
   };
 
   const endPointer = (e: React.PointerEvent) => {
     pointers.current.delete(e.pointerId);
+    if (draft && pointers.current.size === 0) {
+      const d = draft;
+      setDraft(null);
+      // Un toque (o un arrastre de pocos px) no es un recuadro.
+      const big = Math.abs(d.b.x - d.a.x) >= 6 && Math.abs(d.b.y - d.a.y) >= 6;
+      if (e.type !== "pointercancel" && big && frame && pageSize) {
+        const box = dragToPageBox(d.a, d.b, viewRef.current ?? fullView(pageSize), pageSize, frame);
+        if (box) onMark(pageNumber, box, pageSize);
+      }
+      suppressClick.current = true;
+    }
     if (pointers.current.size === 0) {
       if (gesture.current.dragging || gesture.current.pinchDist) setMoving(false);
       gesture.current.dragging = false;
@@ -354,6 +402,8 @@ export function PageView({
 
   const visible = findings.filter((f) => showNear || f.severity !== "cercania");
   const selectedHere = visible.find((f) => f.id === selectedId) ?? null;
+  // Se puede marcar a mano cuando la página ya se terminó de analizar y está dibujada.
+  const canMark = (status === "ok" || status === "no_verificada") && !!pageSize && baseReady && !renderError;
   const kindLabel =
     result?.kind === "image" ? "Escaneada · revisada con IA" : result?.kind === "vector" ? "Texto del PDF" : result?.kind === "empty" ? "Sin contenido" : null;
   const clashes = findings.filter((f) => f.severity === "choque").length;
@@ -379,6 +429,21 @@ export function PageView({
             </button>
           </span>
         )}
+        {canMark && (
+          <button
+            type="button"
+            onClick={() => {
+              setMarking((m) => !m);
+              setDraft(null);
+            }}
+            aria-pressed={marking}
+            className={`rounded px-3 py-2 text-sm font-semibold ${
+              marking ? "bg-choque text-white hover:bg-choque/90" : "border border-choque/60 bg-hoja text-choque hover:bg-papel"
+            }`}
+          >
+            {marking ? "Terminar de marcar" : "Marcar error"}
+          </button>
+        )}
         <span className="ml-auto text-sm">
           {status === "pendiente" && <span className="text-gris">En espera</span>}
           {status === "analizando" && (
@@ -402,6 +467,11 @@ export function PageView({
           )}
         </span>
       </header>
+      {marking && (
+        <p className="mb-2 rounded border border-choque/40 bg-hoja px-3 py-2 text-sm" aria-live="polite">
+          Arrastrá sobre el plano para encerrar el error en un recuadro. Con dos dedos (o Ctrl + rueda) podés hacer zoom.
+        </p>
+      )}
 
       <div
         id={`marco-${pageNumber}`}
@@ -418,7 +488,7 @@ export function PageView({
           }
         }}
         className={`relative overflow-hidden rounded-sm border border-linea-fuerte bg-hoja shadow-[0_1px_2px_rgb(13_33_31/0.06)] select-none ${
-          zoomed ? "cursor-grab touch-none active:cursor-grabbing" : "touch-pan-y"
+          marking ? "cursor-crosshair touch-none" : zoomed ? "cursor-grab touch-none active:cursor-grabbing" : "touch-pan-y"
         }`}
         style={{ aspectRatio: pageSize ? `${pageSize.w} / ${pageSize.h}` : "1190 / 842" }}
       >
@@ -471,9 +541,14 @@ export function PageView({
                 id={`caja-${f.id}`}
                 type="button"
                 onClick={() => onSelect(f.id)}
-                aria-label={`Hallazgo ${f.n}: ${SEVERITY_LABEL[f.severity]} entre ${f.texts.join(" y ")}${f.source === "vision" ? " (texto leído por IA, aproximado)" : ""}`}
+                aria-label={
+                  f.source === "manual"
+                    ? `Hallazgo ${f.n}: ${SEVERITY_LABEL[f.severity]} marcado a mano${f.note ? `: ${f.note}` : ""}`
+                    : `Hallazgo ${f.n}: ${SEVERITY_LABEL[f.severity]} entre ${f.texts.join(" y ")}${f.source === "vision" ? " (texto leído por IA, aproximado)" : ""}`
+                }
                 aria-pressed={selected}
-                className={`absolute rounded-[2px] border-2 ${tone} shadow-[0_0_0_1px_rgb(255_255_255/0.9)] ${
+                tabIndex={marking ? -1 : undefined}
+                className={`absolute rounded-[2px] border-2 ${tone} shadow-[0_0_0_1px_rgb(255_255_255/0.9)] ${marking ? "pointer-events-none" : ""} ${
                   selected ? "ring-2 ring-tinta ring-offset-2 ring-offset-white" : ""
                 }`}
                 style={{
@@ -492,6 +567,19 @@ export function PageView({
             );
           })}
 
+        {draft && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute border-2 border-dashed border-choque bg-choque/10"
+            style={{
+              left: Math.min(draft.a.x, draft.b.x),
+              top: Math.min(draft.a.y, draft.b.y),
+              width: Math.abs(draft.b.x - draft.a.x),
+              height: Math.abs(draft.b.y - draft.a.y),
+            }}
+          />
+        )}
+
         {/* Controles fijos en pantalla: el marco puede ser más alto que la ventana y su borde quedar fuera de vista. */}
         {zoomed && (
           <div className="fixed bottom-4 left-4 z-30 flex items-center gap-2 sm:left-6">
@@ -508,7 +596,10 @@ export function PageView({
           </div>
         )}
       </div>
-      {selectedHere && (
+      {selectedHere && selectedHere.source === "manual" && (
+        <ManualMarkBar key={selectedHere.id} finding={selectedHere} onNote={onNote} onRemove={onRemoveMark} />
+      )}
+      {selectedHere && selectedHere.source !== "manual" && (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-linea bg-hoja px-3 py-2 text-sm">
           <span className="min-w-0 flex-1">
             <span className="font-semibold">Hallazgo {selectedHere.n}</span>
@@ -532,5 +623,50 @@ export function PageView({
         </p>
       )}
     </section>
+  );
+}
+
+/** Barra de una marca a mano seleccionada: nota opcional y "Borrar marca". */
+function ManualMarkBar({
+  finding,
+  onNote,
+  onRemove,
+}: {
+  finding: NumberedFinding;
+  onNote: (id: string, note: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [note, setNote] = useState(finding.note ?? "");
+  const save = () => onNote(finding.id, note);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+      className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-choque/40 bg-hoja px-3 py-2 text-sm"
+    >
+      <span className="font-semibold">
+        Hallazgo {finding.n} · <span className="text-choque">Marcado a mano</span>
+      </span>
+      <label className="flex min-w-0 flex-1 basis-56 items-center gap-2">
+        <span className="shrink-0 text-gris">Nota</span>
+        <input
+          value={note}
+          maxLength={MAX_NOTE}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={save}
+          placeholder="Opcional: qué está mal"
+          className="min-w-0 flex-1 rounded border border-linea-fuerte bg-white px-2 py-1"
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => onRemove(finding.id)}
+        className="rounded border border-linea-fuerte bg-hoja px-3 py-1.5 font-medium hover:bg-papel"
+      >
+        Borrar marca
+      </button>
+    </form>
   );
 }

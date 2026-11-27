@@ -50,6 +50,8 @@ Todo está en `supabase/`:
 | `schema.sql` | Esquema completo para un proyecto nuevo: tablas, vista, funciones, RLS, bucket y datos de ejemplo |
 | `migrations/20261126_video_tope_latidos.sql` | Cambio para un proyecto que ya tenía el esquema anterior |
 | `verificar_20261126.sql` | Controles de sólo lectura: cada fila tiene que decir `ok = true` |
+| `migrations/20261127_historial_analisis.sql` | Tabla `analisis` de "Mi actividad", con RLS |
+| `verificar_20261127_historial.sql` | Una fila de controles del historial: `todo_ok` tiene que dar `true` |
 
 **Proyecto nuevo:**
 
@@ -62,11 +64,18 @@ Todo está en `supabase/`:
 5. Authentication → URL Configuration: Site URL = la URL de producción, y en Redirect URLs
    `http://localhost:3000/auth/callback` y `https://<sitio>/auth/callback`.
 6. Recomendado: desactivar el proveedor Email, porque la app sólo usa Google.
-7. Ejecutar `verificar_20261126.sql`.
+7. Ejecutar `verificar_20261126.sql` y `verificar_20261127_historial.sql`.
 
 **Proyecto existente:** ejecutar la migración y después `verificar_20261126.sql`. El código
 funciona antes y después de aplicarla, pero el control completo (incluidos dos latidos
 simultáneos) queda recién con la migración.
+
+Para el historial, ejecutar `migrations/20261127_historial_analisis.sql` y después
+`verificar_20261127_historial.sql`. La verificación inserta una fila de prueba y prueba leer y
+escribir como anon, como un usuario no habilitado y como dos personas habilitadas, dentro de una
+transacción que termina en `ROLLBACK`: no deja nada guardado. Hasta aplicar la migración, el
+detector funciona igual (registrar el historial falla en silencio) y "Mi actividad" muestra el
+aviso de error.
 
 Para habilitar a alguien más: `insert into public.allowed_emails (email, display_name) values
 ('correo@dominio.com', 'Nombre');`. El correo tiene que ir en minúsculas.
@@ -88,6 +97,27 @@ Para habilitar a alguien más: `insert into public.allowed_emails (email, displa
   app pueda revisar la lista. Una cuenta no habilitada queda registrada ahí, sin sesión ni acceso.
   Para evitarlo haría falta un *Before User Created hook* en Supabase Auth, que no está
   configurado.
+
+## Mi actividad (historial)
+
+- **Qué guarda:** una fila por PDF analizado en `public.analisis`, con nombre del archivo,
+  páginas, páginas escaneadas, choques, duplicados, cercanías, páginas no verificadas y fecha.
+  **Sólo metadatos:** ni el PDF, ni sus textos, ni el texto de los hallazgos.
+- **Cuándo:** el detector lo registra una vez, al terminar todas las páginas
+  (`lib/client/historial.ts`). No registra si alguna página salió del caché del navegador (ese
+  archivo ya se había analizado), ni corridas cortadas, ni el "Reintentar" de una página.
+- **A prueba de fallos:** el registro sale sin esperarlo, con un corte a los 10 s, y si falla
+  (red, servidor, base, límite) sólo queda un aviso en la consola. El análisis y los resultados
+  no dependen de él.
+- **Escritura:** sólo `POST /api/historial` (`lib/historial.ts`), con la misma guarda que
+  `/api/analyze`. Valida el cuerpo (tipos, rangos, campos de más, nombre hasta 255 caracteres,
+  cuerpo hasta 2 KB), toma el correo de la sesión y nunca del cuerpo, e inserta con service_role.
+  Límite por persona: 10 registros por minuto y 300 por día, contados en la base.
+- **Lectura:** la pantalla `/historial` (sólo personas habilitadas) lee con la sesión del
+  usuario. La política RLS deja ver sólo las filas propias (correo del JWT, que además tiene que
+  seguir habilitado). Para eso `authenticated` puede ejecutar `is_allowed()`, que sólo responde
+  por el correo de la propia sesión.
+- **Al quitar a alguien de `allowed_emails`** se borra su historial (`on delete cascade`).
 
 ## Video obligatorio
 

@@ -1,7 +1,7 @@
 // Orden de análisis de las páginas de un PDF: la 1 sola y después las demás de a varias.
 // Sin React ni red: DetectorApp le pasa cómo analizar una página, y acá sólo se decide el orden.
 
-/** Páginas que se analizan a la vez después de la primera. Medido en el bench (README): con 3 la
+/** Páginas que se analizan a la vez después de la primera. Medido con scripts/run-samples.mts (PAGINAS_EN_PARALELO): con 3 la
  * corrida tarda ~45 % menos que en serie, con la misma detección y sin respuestas 429. */
 export const PAGINAS_EN_PARALELO = 3;
 

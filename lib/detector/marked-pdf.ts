@@ -197,7 +197,7 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines.length ? lines : [""];
 }
 
-type SummaryInput = { fileName: string; pages: PageResult[]; findings: NumberedFinding[]; showNear: boolean; date: Date; dismissedCount: number };
+type SummaryInput = { fileName: string; pages: PageResult[]; findings: NumberedFinding[]; showNear: boolean; date: Date; falseAlarmCount: number };
 
 /** Hoja(s) de resumen en A4 vertical al final del documento. */
 function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDFFont; bold: PDFFont; italic: PDFFont }) {
@@ -259,9 +259,9 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
   if (manual > 0) {
     para(`${plural(manual, "error marcado", "errores marcados")} a mano por el usuario (se cuentan como choques).`, 9.5, regular, GRAY);
   }
-  if (input.dismissedCount > 0) {
+  if (input.falseAlarmCount > 0) {
     para(
-      `${plural(input.dismissedCount, "hallazgo descartado", "hallazgos descartados")} por el usuario (${input.dismissedCount === 1 ? "marcado" : "marcados"} como "Está bien"): no se ${input.dismissedCount === 1 ? "cuenta ni se marca" : "cuentan ni se marcan"}.`,
+      `${plural(input.falseAlarmCount, "falsa alarma", "falsas alarmas")} según la revisión del usuario: no se ${input.falseAlarmCount === 1 ? "cuenta ni se marca" : "cuentan ni se marcan"}.`,
       9.5,
       regular,
       GRAY,
@@ -345,8 +345,8 @@ export type MarkedPdfInput = {
   geometry: Record<number, PageGeometry>;
   showNear: boolean;
   date?: Date;
-  /** Hallazgos que la persona marcó como "Está bien" (ya sacados de `pages`): sólo se informa cuántos. */
-  dismissedCount?: number;
+  /** Hallazgos que la persona marcó como falsa alarma (ya sacados de `pages`): sólo se informa cuántos. */
+  falseAlarmCount?: number;
 };
 
 /** Arma el PDF con marcas. Lanza si pdf-lib no puede abrir el archivo (p. ej. protegido). */
@@ -370,7 +370,7 @@ export async function buildMarkedPdf(input: MarkedPdfInput): Promise<Uint8Array>
 
   addSummary(
     doc,
-    { fileName: input.fileName, pages: input.pages, findings, showNear: input.showNear, date: input.date ?? new Date(), dismissedCount: input.dismissedCount ?? 0 },
+    { fileName: input.fileName, pages: input.pages, findings, showNear: input.showNear, date: input.date ?? new Date(), falseAlarmCount: input.falseAlarmCount ?? 0 },
     { regular, bold, italic },
   );
   return doc.save();

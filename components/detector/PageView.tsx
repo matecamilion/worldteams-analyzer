@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { NumberedFinding } from "@/lib/detector/report";
-import { SEVERITY_LABEL } from "@/lib/detector/report";
+import { reviewLabel } from "@/lib/detector/report";
+import type { ReviewState } from "@/lib/detector/review";
+import type { Finding } from "@/lib/detector/types";
+import { CheckIcon, ReviewControls } from "./ReviewControls";
 import { MAX_NOTE } from "@/lib/detector/review";
 import { LOW_RES_WARNING, type PageResult } from "@/lib/detector/types";
 import {
@@ -39,9 +42,9 @@ type Props = {
   showNear: boolean;
   zoom: ZoomCommand | null;
   onSelect: (id: string) => void;
-  /** "Está bien" sobre el hallazgo seleccionado: lo descarta (se puede deshacer). */
-  onDismiss: (id: string) => void;
-  /** Recuadro dibujado en modo "Marcar error": caja en pt y tamaño de la hoja en pt. */
+  /** Revisión del hallazgo seleccionado: confirmado, falsa alarma o por revisar (se puede deshacer). */
+  onDecide: (finding: Finding, state: ReviewState) => void;
+  /** Recuadro dibujado en el modo de agregar un error: caja en pt y tamaño de la hoja en pt. */
   onMark: (page: number, box: Box, pageSize: { w: number; h: number }) => void;
   /** Borra una marca a mano (por id del hallazgo). */
   onRemoveMark: (id: string) => void;
@@ -76,7 +79,7 @@ export function PageView({
   showNear,
   zoom,
   onSelect,
-  onDismiss,
+  onDecide,
   onMark,
   onRemoveMark,
   onNote,
@@ -96,7 +99,7 @@ export function PageView({
   /** Vista para la que está dibujado el canvas nítido (si no coincide con la actual, se oculta). */
   const [detailView, setDetailView] = useState<View | null>(null);
   const [moving, setMoving] = useState(false);
-  /** Modo "Marcar error": arrastrar dibuja un recuadro en vez de mover el plano. */
+  /** Modo "Agregar un error": arrastrar dibuja un recuadro en vez de mover el plano. */
   const [marking, setMarking] = useState(false);
   /** Recuadro que se está dibujando, en px dentro del marco. */
   const [draft, setDraft] = useState<{ a: { x: number; y: number }; b: { x: number; y: number } } | null>(null);
@@ -306,7 +309,7 @@ export function PageView({
     gesture.current = { dragging: false, startX: e.clientX, startY: e.clientY, pinchDist: null };
     suppressClick.current = false;
     if (marking && pointers.current.size === 1) {
-      // Modo "Marcar error": un dedo o el mouse empiezan un recuadro.
+      // Modo "Agregar un error": un dedo o el mouse empiezan un recuadro.
       const p = local(e);
       setDraft({ a: p, b: p });
       capture(e);
@@ -441,7 +444,7 @@ export function PageView({
               marking ? "bg-choque text-white hover:bg-choque/90" : "border border-choque/60 bg-hoja text-choque hover:bg-papel"
             }`}
           >
-            {marking ? "Terminar de marcar" : "Marcar error"}
+            {marking ? "Terminar de agregar" : "Agregar un error que no vio la herramienta"}
           </button>
         )}
         <span className="ml-auto text-sm">
@@ -469,7 +472,7 @@ export function PageView({
       </header>
       {marking && (
         <p className="mb-2 rounded border border-choque/40 bg-hoja px-3 py-2 text-sm" aria-live="polite">
-          Arrastrá sobre el plano para encerrar el error en un recuadro. Con dos dedos (o Ctrl + rueda) podés hacer zoom.
+          Arrastrá sobre el plano para encerrar el error en un recuadro: queda como choque confirmado. Con dos dedos (o Ctrl + rueda) podés hacer zoom.
         </p>
       )}
 
@@ -543,8 +546,8 @@ export function PageView({
                 onClick={() => onSelect(f.id)}
                 aria-label={
                   f.source === "manual"
-                    ? `Hallazgo ${f.n}: ${SEVERITY_LABEL[f.severity]} marcado a mano${f.note ? `: ${f.note}` : ""}`
-                    : `Hallazgo ${f.n}: ${SEVERITY_LABEL[f.severity]} entre ${f.texts.join(" y ")}${f.source === "vision" ? " (texto leído por IA, aproximado)" : ""}`
+                    ? `Hallazgo ${f.n}: ${reviewLabel(f)}, agregado a mano${f.note ? `: ${f.note}` : ""}`
+                    : `Hallazgo ${f.n}: ${reviewLabel(f)} entre ${f.texts.join(" y ")}${f.source === "vision" ? " (texto leído por IA, aproximado)" : ""}`
                 }
                 aria-pressed={selected}
                 tabIndex={marking ? -1 : undefined}
@@ -563,6 +566,12 @@ export function PageView({
                 >
                   {f.n}
                 </span>
+                {f.reviewState === "confirmado" && (
+                  // Confirmado: un ✓ además del color, para que se distinga sin depender de él.
+                  <span className="absolute -top-2.5 -right-2.5 grid h-5 w-5 place-items-center rounded-full bg-ok text-white ring-2 ring-white">
+                    <CheckIcon className="h-3 w-3" />
+                  </span>
+                )}
               </button>
             );
           })}
@@ -601,19 +610,13 @@ export function PageView({
       )}
       {selectedHere && selectedHere.source !== "manual" && (
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-linea bg-hoja px-3 py-2 text-sm">
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 basis-48">
             <span className="font-semibold">Hallazgo {selectedHere.n}</span>
             {" · "}
-            {SEVERITY_LABEL[selectedHere.severity]}
+            {reviewLabel(selectedHere)}
             {selectedHere.texts.length > 0 && <span className="text-gris"> · {selectedHere.texts.join(" × ")}</span>}
           </span>
-          <button
-            type="button"
-            onClick={() => onDismiss(selectedHere.id)}
-            className="rounded border border-linea-fuerte bg-hoja px-3 py-1.5 font-medium hover:bg-papel"
-          >
-            Está bien
-          </button>
+          <ReviewControls finding={selectedHere} onDecide={onDecide} size="md" />
         </div>
       )}
       {result?.error && status === "no_verificada" && <p className="mt-2 text-sm text-cercania">{result.error}</p>}
@@ -647,7 +650,11 @@ function ManualMarkBar({
       className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-choque/40 bg-hoja px-3 py-2 text-sm"
     >
       <span className="font-semibold">
-        Hallazgo {finding.n} · <span className="text-choque">Marcado a mano</span>
+        Hallazgo {finding.n} ·{" "}
+        <span className="inline-flex items-center gap-1 text-ok">
+          <CheckIcon /> Choque confirmado
+        </span>{" "}
+        <span className="font-normal text-gris">· agregado a mano</span>
       </span>
       <label className="flex min-w-0 flex-1 basis-56 items-center gap-2">
         <span className="shrink-0 text-gris">Nota</span>

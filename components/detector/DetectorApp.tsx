@@ -7,11 +7,11 @@ import { recordFinishedRun, type PageOutcome } from "@/lib/client/historial";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
 import { loadReview, saveReview } from "@/lib/client/review-store";
 import { PAGINAS_EN_PARALELO, runPages, type PageAttempt } from "@/lib/client/run-pages";
-import { addManual, applyReview, dismiss, removeManual, restore, setManualNote, type Review } from "@/lib/detector/review";
+import { addManual, applyReview, decide, removeManual, setManualNote, type Review, type ReviewState } from "@/lib/detector/review";
 import { numberFindings, summarize } from "@/lib/detector/report";
-import type { PageResult } from "@/lib/detector/types";
+import type { Finding, PageResult } from "@/lib/detector/types";
 import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
-import { DismissedList } from "./DismissedList";
+import { FalseAlarmList } from "./FalseAlarmList";
 import { ResultsPanel } from "./ResultsPanel";
 import { UploadZone } from "./UploadZone";
 
@@ -88,11 +88,11 @@ export function DetectorApp() {
   /** Página que tiene zoom (por un hallazgo o por un gesto), para que Esc sepa a quién volver. */
   const zoomedPage = useRef<number | null>(null);
   const runId = useRef(0);
-  /** Revisión del usuario ("Está bien"): se guarda por PDF en este navegador. */
+  /** Revisión de la persona (confirmados, falsas alarmas, agregados a mano): se guarda por PDF en este navegador. */
   const [review, setReview] = useState<Review>({});
   /** Estados anteriores de la revisión, para "Deshacer" (sólo en memoria). */
   const [undoStack, setUndoStack] = useState<Review[]>([]);
-  const [showDismissed, setShowDismissed] = useState(false);
+  const [showFalseAlarms, setShowFalseAlarms] = useState(false);
 
   const setPage = (page: number, patch: Partial<PageEntry>) =>
     setPages((prev) => prev.map((p) => (p.page === page ? { ...p, ...patch } : p)));
@@ -157,7 +157,7 @@ export function DetectorApp() {
         // La revisión sigue al archivo (mismo SHA-256), no a la corrida: sobrevive a reanalizar.
         setReview(hash ? loadReview(hash) : {});
         setUndoStack([]);
-        setShowDismissed(false);
+        setShowFalseAlarms(false);
         setSelectedId(null);
         setZoom(null);
         zoomedPage.current = null;
@@ -235,6 +235,7 @@ export function DetectorApp() {
   const reviewed = useMemo(() => applyReview(results, review), [results, review]);
   const findings = useMemo(() => numberFindings(reviewed.pages), [reviewed]);
   const summary = useMemo(() => summarize(reviewed.pages), [reviewed]);
+  const rc = reviewed.counts;
   const done = pages.filter((p) => p.status === "ok" || p.status === "no_verificada").length;
   // Con varias páginas en vuelo no hay una "actual": se cuenta cuántas están listas.
   const scanningNow = pages.some((p) => p.status === "analizando" && p.scanned);
@@ -320,7 +321,7 @@ export function DetectorApp() {
         pages: reviewed.pages,
         geometry,
         showNear,
-        dismissedCount: reviewed.dismissed.length,
+        falseAlarmCount: reviewed.counts.falsasAlarmas,
       });
       const blob = new Blob([pdf as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       const a = document.createElement("a");
@@ -344,11 +345,10 @@ export function DetectorApp() {
     setReview(next);
     if (loaded?.hash) saveReview(loaded.hash, next);
   };
-  const markOk = (id: string) => {
-    const f = findings.find((x) => x.id === id);
-    if (!f) return;
-    changeReview(dismiss(review, f));
-    if (selectedId === id) setSelectedId(null);
+  /** La persona decide sobre un hallazgo: es real, es una falsa alarma o vuelve a por revisar. */
+  const decideOn = (f: Finding, state: ReviewState) => {
+    changeReview(decide(review, f, state));
+    if (state === "falsa_alarma" && selectedId === f.id) setSelectedId(null);
   };
   /** Recuadro dibujado a mano: se guarda como un choque "Marcado a mano" y queda seleccionado. */
   const addMark = (page: number, box: { x: number; y: number; w: number; h: number }, size: { w: number; h: number }) => {
@@ -378,9 +378,9 @@ export function DetectorApp() {
     setReview(prev);
     if (loaded?.hash) saveReview(loaded.hash, prev);
   };
-  const toggleDismissed = () => {
-    setShowDismissed((v) => !v);
-    requestAnimationFrame(() => document.getElementById("descartados")?.scrollIntoView({ block: "nearest" }));
+  const toggleFalseAlarms = () => {
+    setShowFalseAlarms((v) => !v);
+    requestAnimationFrame(() => document.getElementById("falsas-alarmas")?.scrollIntoView({ block: "nearest" }));
   };
 
   if (!loaded) {
@@ -439,23 +439,24 @@ export function DetectorApp() {
             </div>
           </dl>
 
-          {(reviewed.dismissed.length > 0 || undoStack.length > 0) && (
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              {reviewed.dismissed.length > 0 && (
-                <span className="text-gris" aria-live="polite">
-                  <span className="num font-semibold text-tinta">{reviewed.dismissed.length}</span>{" "}
-                  {reviewed.dismissed.length === 1 ? "descartado" : "descartados"}
-                </span>
-              )}
-              {reviewed.dismissed.length > 0 && (
+          {(rc.total > 0 || undoStack.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className="text-gris" aria-live="polite">
+                Revisados <span className="num font-semibold text-tinta">{rc.revisados}</span> de <span className="num">{rc.total}</span>
+                {" · "}
+                <span className="num font-semibold text-ok">{rc.confirmados}</span> {rc.confirmados === 1 ? "confirmado" : "confirmados"}
+                {" · "}
+                <span className="num font-semibold text-tinta">{rc.falsasAlarmas}</span> {rc.falsasAlarmas === 1 ? "falsa alarma" : "falsas alarmas"}
+              </span>
+              {rc.falsasAlarmas > 0 && (
                 <button
                   type="button"
-                  onClick={toggleDismissed}
-                  aria-expanded={showDismissed}
-                  aria-controls="descartados"
+                  onClick={toggleFalseAlarms}
+                  aria-expanded={showFalseAlarms}
+                  aria-controls="falsas-alarmas"
                   className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 font-medium hover:bg-papel"
                 >
-                  {showDismissed ? "Ocultar descartados" : "Ver descartados"}
+                  {showFalseAlarms ? "Ocultar falsas alarmas" : "Ver falsas alarmas"}
                 </button>
               )}
               {undoStack.length > 0 && (
@@ -509,12 +510,8 @@ export function DetectorApp() {
 
       <div className="mx-auto grid w-full max-w-[1600px] flex-1 gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-8">
-          {showDismissed && reviewed.dismissed.length > 0 && (
-            <DismissedList
-              items={reviewed.dismissed}
-              onRestore={(page, firma) => changeReview(restore(review, page, firma))}
-              onClose={() => setShowDismissed(false)}
-            />
+          {showFalseAlarms && reviewed.falseAlarms.length > 0 && (
+            <FalseAlarmList items={reviewed.falseAlarms} onDecide={decideOn} onClose={() => setShowFalseAlarms(false)} />
           )}
           {hasScanned && (
           <p className="flex gap-2 rounded border border-cercania/40 bg-cercania-suave px-3 py-2 text-sm text-tinta">
@@ -538,7 +535,7 @@ export function DetectorApp() {
               showNear={showNear}
               zoom={zoom}
               onSelect={select}
-              onDismiss={markOk}
+              onDecide={decideOn}
               onMark={addMark}
               onRemoveMark={removeMark}
               onNote={noteMark}
@@ -559,7 +556,7 @@ export function DetectorApp() {
               showNear={showNear}
               onToggleNear={setShowNear}
               onSelect={select}
-              onDismiss={markOk}
+              onDecide={decideOn}
               onRemoveMark={removeMark}
               onRetry={retry}
             />

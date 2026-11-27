@@ -1,7 +1,10 @@
 "use client";
 
 import type { NumberedFinding } from "@/lib/detector/report";
-import { AI_TEXT_NOTE, SEVERITY_LABEL } from "@/lib/detector/report";
+import { AI_TEXT_NOTE, reviewLabel } from "@/lib/detector/report";
+import type { ReviewState } from "@/lib/detector/review";
+import type { Finding } from "@/lib/detector/types";
+import { CheckIcon, ReviewControls } from "./ReviewControls";
 
 const AI_TEXT_NOTE_CAP = AI_TEXT_NOTE[0].toUpperCase() + AI_TEXT_NOTE.slice(1);
 import { LOW_RES_WARNING, type PageResult } from "@/lib/detector/types";
@@ -17,8 +20,8 @@ type Props = {
   showNear: boolean;
   onToggleNear: (v: boolean) => void;
   onSelect: (id: string) => void;
-  /** "Está bien": descarta el hallazgo (se puede deshacer). */
-  onDismiss: (id: string) => void;
+  /** Revisión: confirmado, falsa alarma o de vuelta a por revisar (se puede deshacer). */
+  onDecide: (finding: Finding, state: ReviewState) => void;
   /** Borra un error marcado a mano. */
   onRemoveMark: (id: string) => void;
   onRetry: (page: number) => void;
@@ -27,7 +30,7 @@ type Props = {
 // Espacio no separable: el "%" no queda solo en otro renglón.
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
-export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onToggleNear, onSelect, onDismiss, onRemoveMark, onRetry }: Props) {
+export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onToggleNear, onSelect, onDecide, onRemoveMark, onRetry }: Props) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between gap-3 border-b border-linea px-4 py-3">
@@ -118,8 +121,13 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                             </span>
                             {f.source === "vision" && <span className="block text-xs text-gris italic">{AI_TEXT_NOTE_CAP}</span>}
                             <span className="mt-0.5 block text-xs text-gris">
-                              <span className={f.severity === "choque" ? "font-semibold text-choque" : f.severity === "cercania" ? "font-semibold text-cercania" : ""}>
-                                {SEVERITY_LABEL[f.severity]}
+                              <span
+                                className={`inline-flex items-center gap-1 ${
+                                  f.severity === "choque" ? "font-semibold text-choque" : f.severity === "cercania" ? "font-semibold text-cercania" : ""
+                                }`}
+                              >
+                                {f.reviewState === "confirmado" && <CheckIcon className="h-3 w-3" />}
+                                {reviewLabel(f)}
                               </span>
                               {" · "}
                               {f.zone}
@@ -144,8 +152,13 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                             <span className="h-14 w-24 animate-pulse rounded-sm bg-linea/60" aria-hidden />
                           )}
                         </button>
-                        <div className={`flex justify-end px-4 pb-2 ${selected ? "bg-papel shadow-[inset_3px_0_0_var(--color-verde)]" : ""}`}>
-                          {f.source === "manual" ? (
+                        <div
+                          className={`flex flex-wrap items-center justify-between gap-2 py-2 pr-4 pl-13 ${
+                            selected ? "bg-papel shadow-[inset_3px_0_0_var(--color-verde)]" : ""
+                          }`}
+                        >
+                          <ReviewControls finding={f} onDecide={onDecide} />
+                          {f.source === "manual" && (
                             <button
                               type="button"
                               onClick={() => onRemoveMark(f.id)}
@@ -153,15 +166,6 @@ export function ResultsPanel({ pages, findings, crops, selectedId, showNear, onT
                               className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 text-xs font-medium hover:bg-papel"
                             >
                               Borrar marca
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => onDismiss(f.id)}
-                              aria-label={`Hallazgo ${f.n} está bien: descartarlo`}
-                              className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 text-xs font-medium hover:bg-papel"
-                            >
-                              Está bien
                             </button>
                           )}
                         </div>

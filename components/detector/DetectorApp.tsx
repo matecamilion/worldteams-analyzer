@@ -5,6 +5,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { forgetCachedPage, getCachedPage, hashPdf, putCachedPage } from "@/lib/client/cache";
 import { recordFinishedRun, type PageOutcome } from "@/lib/client/historial";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
+import { PAGINAS_EN_PARALELO, runPages, type PageAttempt } from "@/lib/client/run-pages";
 import { numberFindings, summarize } from "@/lib/detector/report";
 import type { PageResult } from "@/lib/detector/types";
 import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
@@ -34,6 +35,8 @@ class RequestError extends Error {
   constructor(
     message: string,
     readonly retryable: boolean,
+    /** Código HTTP, si el servidor llegó a responder. */
+    readonly status?: number,
   ) {
     super(message);
   }
@@ -57,10 +60,10 @@ async function requestPage(bytes: ArrayBuffer, page: number): Promise<PageResult
     // Recarga completa a propósito: descarta el estado de la sesión vencida.
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`${window.location.origin}/login`);
-    throw new RequestError("Tu sesión venció. Volvé a entrar.", false);
+    throw new RequestError("Tu sesión venció. Volvé a entrar.", false, 401);
   }
-  if (res.status === 504) throw new RequestError("El análisis tardó demasiado y se cortó.", true);
-  throw new RequestError(body?.error ?? `El servidor respondió ${res.status}.`, res.status >= 500 || res.status === 429);
+  if (res.status === 504) throw new RequestError("El análisis tardó demasiado y se cortó.", true, 504);
+  throw new RequestError(body?.error ?? `El servidor respondió ${res.status}.`, res.status >= 500 || res.status === 429, res.status);
 }
 
 function unverified(page: number, error: string): PageResult {
@@ -96,28 +99,36 @@ export function DetectorApp() {
     page: number,
     run: number,
     useCache = true,
-  ): Promise<PageOutcome | null> => {
+  ): Promise<PageAttempt<PageOutcome> | null> => {
     const scanned = await looksScanned(doc, page);
     // Página escaneada ya analizada en este navegador: se reutiliza sin llamar a la IA.
     const cached = scanned && hash && useCache ? getCachedPage(hash, page) : null;
     if (cached) {
-      if (run === runId.current) setPage(page, { status: "ok", scanned, result: cached.result, cachedAt: cached.savedAt });
-      return { result: cached.result, fromCache: true };
+      if (run !== runId.current) return null;
+      setPage(page, { status: "ok", scanned, result: cached.result, cachedAt: cached.savedAt });
+      return { outcome: { result: cached.result, fromCache: true } };
     }
+    if (run !== runId.current) return null;
     setPage(page, { status: "analizando", scanned, cachedAt: undefined });
     let result: PageResult | null = null;
+    let failure: PageAttempt<PageOutcome>["failure"];
     for (let attempt = 0; attempt <= AUTO_RETRIES && !result; attempt++) {
       try {
         result = await requestPage(bytes, page);
       } catch (e) {
         const err = e as RequestError;
-        if (!err.retryable || attempt === AUTO_RETRIES) result = unverified(page, err.message);
+        if (!err.retryable || attempt === AUTO_RETRIES) {
+          result = unverified(page, err.message);
+          failure = err.status === 401 || err.status === 403 ? "sin_acceso" : "error";
+        }
       }
     }
     if (run !== runId.current) return null; // Se subió otro archivo mientras tanto.
+    // Escaneada sin verificar: falló la IA (caída, lenta o parcial). Cuenta como falla del servicio.
+    if (!failure && result!.kind === "image" && result!.status !== "ok") failure = "error";
     if (hash) putCachedPage(hash, page, result!);
     setPage(page, { status: result!.status === "ok" ? "ok" : "no_verificada", result: result! });
-    return { result: result!, fromCache: false };
+    return { outcome: { result: result!, fromCache: false }, failure };
   }, []);
 
   const start = useCallback(
@@ -140,21 +151,32 @@ export function DetectorApp() {
         zoomedPage.current = null;
         setOpening(false);
         setRunning(true);
-        // Página por página: cada request entra holgado en el límite de duración de Vercel.
-        const outcomes: PageOutcome[] = [];
-        for (let n = 1; n <= doc.numPages; n++) {
-          if (run !== runId.current) return;
-          const outcome = await analyze(doc, bytes, hash, n, run);
-          if (outcome) outcomes.push(outcome);
+        // Un request por página (cada uno entra holgado en el límite de duración de Vercel): la 1
+        // sola y después de a PAGINAS_EN_PARALELO.
+        const isCurrent = () => run === runId.current;
+        const outcome = await runPages<PageOutcome>({
+          total: doc.numPages,
+          parallel: PAGINAS_EN_PARALELO,
+          isCurrent,
+          analyzePage: (n) => analyze(doc, bytes, hash, n, run),
+          onPageError: (n) => {
+            const result = unverified(n, "No se pudo analizar esta página.");
+            setPage(n, { status: "no_verificada", result });
+            return { result, fromCache: false };
+          },
+        });
+        if (outcome.status === "cortada" || !isCurrent()) return;
+        if (outcome.status === "sin_acceso") {
+          // Sin acceso, las demás fallarían igual: quedan sin verificar con el mismo motivo.
+          const reason = outcome.outcomes[outcome.failedPage - 1]?.result.error ?? "No se pudo analizar la página.";
+          for (const n of outcome.pending) setPage(n, { status: "no_verificada", result: unverified(n, reason) });
         }
-        if (run === runId.current) {
-          setRunning(false);
-          // "Mi actividad": una sola vez por corrida, sin esperar y sin errores visibles. Los
-          // reintentos de una página y los resultados del caché no se registran.
-          if (!recordedRuns.current.has(run)) {
-            recordedRuns.current.add(run);
-            void recordFinishedRun(file.name, outcomes, doc.numPages);
-          }
+        setRunning(false);
+        // "Mi actividad": una sola vez por corrida, sólo si se analizaron todas las páginas, sin
+        // esperar y sin errores visibles. Los reintentos de una página y el caché no se registran.
+        if (outcome.status === "completa" && !recordedRuns.current.has(run)) {
+          recordedRuns.current.add(run);
+          void recordFinishedRun(file.name, outcome.outcomes, doc.numPages);
         }
       } catch {
         setOpening(false);
@@ -200,8 +222,8 @@ export function DetectorApp() {
   const findings = useMemo(() => numberFindings(results), [results]);
   const summary = useMemo(() => summarize(results), [results]);
   const done = pages.filter((p) => p.status === "ok" || p.status === "no_verificada").length;
-  const currentEntry = pages.find((p) => p.status === "analizando");
-  const current = currentEntry?.page;
+  // Con varias páginas en vuelo no hay una "actual": se cuenta cuántas están listas.
+  const scanningNow = pages.some((p) => p.status === "analizando" && p.scanned);
   // Sólo si alguna página pasó (o está pasando) por la IA: en un PDF vectorial el aviso confunde.
   const hasScanned = results.some((r) => r.kind === "image") || pages.some((p) => p.scanned);
 
@@ -318,9 +340,9 @@ export function DetectorApp() {
               {loaded.name}
             </p>
             <p className="text-sm text-gris" aria-live="polite">
-              {running && current
-                ? `Analizando página ${current} de ${pages.length}` +
-                  (currentEntry?.scanned ? " · es escaneada, puede tardar hasta un minuto" : "")
+              {running
+                ? `${done} de ${pages.length} ${pages.length === 1 ? "página lista" : "páginas listas"}` +
+                  (scanningNow ? " · hay páginas escaneadas, pueden tardar hasta un minuto" : "")
                 : `${pages.length} páginas revisadas`}
             </p>
           </div>

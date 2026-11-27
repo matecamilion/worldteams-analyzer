@@ -59,3 +59,6 @@ next-env.d.ts
 # Corridas con el plano real: traen los textos que leyó la IA, no se suben.
 /bench/samples-reales-*.json
 /bench/samples-prompt-*.json
+# Corridas del bench de páginas en paralelo (pueden incluir el plano real con REALES=1).
+/bench/samples-paralelo-*.json
+/bench/samples-sim-*.json

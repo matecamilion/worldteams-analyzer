@@ -47,6 +47,9 @@ next-env.d.ts
 # Corrida de npm run muestras: cambia en cada ejecución.
 /bench/samples-ultima.json
 
+# Manual de estudio personal: no se sube (el repo es público).
+/manual-mateo/
+
 # Plano real de baja resolución: archivos locales, no se suben (el plano no es nuestro).
 /samples/7-plano-real-limpio-control.pdf
 /samples/8-plano-real-con-errores.pdf

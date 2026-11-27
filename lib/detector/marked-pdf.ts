@@ -197,7 +197,7 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines.length ? lines : [""];
 }
 
-type SummaryInput = { fileName: string; pages: PageResult[]; findings: NumberedFinding[]; showNear: boolean; date: Date };
+type SummaryInput = { fileName: string; pages: PageResult[]; findings: NumberedFinding[]; showNear: boolean; date: Date; dismissedCount: number };
 
 /** Hoja(s) de resumen en A4 vertical al final del documento. */
 function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDFFont; bold: PDFFont; italic: PDFFont }) {
@@ -255,6 +255,14 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
     bold,
   );
   y -= 4;
+  if (input.dismissedCount > 0) {
+    para(
+      `${plural(input.dismissedCount, "hallazgo descartado", "hallazgos descartados")} por el usuario (${input.dismissedCount === 1 ? "marcado" : "marcados"} como "Está bien"): no se ${input.dismissedCount === 1 ? "cuenta ni se marca" : "cuentan ni se marcan"}.`,
+      9.5,
+      regular,
+      GRAY,
+    );
+  }
   if (!input.showNear && s.cercanias) {
     para(`Las cercanías no se marcaron en el plano ni se listan abajo: "Mostrar cercanías" estaba apagado.`, 9.5, regular, GRAY);
   }
@@ -331,6 +339,8 @@ export type MarkedPdfInput = {
   geometry: Record<number, PageGeometry>;
   showNear: boolean;
   date?: Date;
+  /** Hallazgos que la persona marcó como "Está bien" (ya sacados de `pages`): sólo se informa cuántos. */
+  dismissedCount?: number;
 };
 
 /** Arma el PDF con marcas. Lanza si pdf-lib no puede abrir el archivo (p. ej. protegido). */
@@ -352,6 +362,10 @@ export async function buildMarkedPdf(input: MarkedPdfInput): Promise<Uint8Array>
     drawMark(page, f, result, g, bold);
   }
 
-  addSummary(doc, { fileName: input.fileName, pages: input.pages, findings, showNear: input.showNear, date: input.date ?? new Date() }, { regular, bold, italic });
+  addSummary(
+    doc,
+    { fileName: input.fileName, pages: input.pages, findings, showNear: input.showNear, date: input.date ?? new Date(), dismissedCount: input.dismissedCount ?? 0 },
+    { regular, bold, italic },
+  );
   return doc.save();
 }

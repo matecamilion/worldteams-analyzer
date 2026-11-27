@@ -5,10 +5,13 @@ import type { PDFDocumentProxy } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { forgetCachedPage, getCachedPage, hashPdf, putCachedPage } from "@/lib/client/cache";
 import { recordFinishedRun, type PageOutcome } from "@/lib/client/historial";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
+import { loadReview, saveReview } from "@/lib/client/review-store";
 import { PAGINAS_EN_PARALELO, runPages, type PageAttempt } from "@/lib/client/run-pages";
+import { applyReview, dismiss, restore, type Review } from "@/lib/detector/review";
 import { numberFindings, summarize } from "@/lib/detector/report";
 import type { PageResult } from "@/lib/detector/types";
 import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
+import { DismissedList } from "./DismissedList";
 import { ResultsPanel } from "./ResultsPanel";
 import { UploadZone } from "./UploadZone";
 
@@ -85,6 +88,11 @@ export function DetectorApp() {
   /** Página que tiene zoom (por un hallazgo o por un gesto), para que Esc sepa a quién volver. */
   const zoomedPage = useRef<number | null>(null);
   const runId = useRef(0);
+  /** Revisión del usuario ("Está bien"): se guarda por PDF en este navegador. */
+  const [review, setReview] = useState<Review>({});
+  /** Estados anteriores de la revisión, para "Deshacer" (sólo en memoria). */
+  const [undoStack, setUndoStack] = useState<Review[]>([]);
+  const [showDismissed, setShowDismissed] = useState(false);
 
   const setPage = (page: number, patch: Partial<PageEntry>) =>
     setPages((prev) => prev.map((p) => (p.page === page ? { ...p, ...patch } : p)));
@@ -146,6 +154,10 @@ export function DetectorApp() {
         setLoaded({ name: file.name, bytes, doc, run, hash });
         setPages(Array.from({ length: doc.numPages }, (_, i) => ({ page: i + 1, status: "pendiente" as const })));
         setCrops({});
+        // La revisión sigue al archivo (mismo SHA-256), no a la corrida: sobrevive a reanalizar.
+        setReview(hash ? loadReview(hash) : {});
+        setUndoStack([]);
+        setShowDismissed(false);
         setSelectedId(null);
         setZoom(null);
         zoomedPage.current = null;
@@ -219,8 +231,10 @@ export function DetectorApp() {
   };
 
   const results = useMemo(() => pages.flatMap((p) => (p.result ? [p.result] : [])), [pages]);
-  const findings = useMemo(() => numberFindings(results), [results]);
-  const summary = useMemo(() => summarize(results), [results]);
+  // La revisión se aplica antes de numerar, contar y exportar: pantalla y PDF ven lo mismo.
+  const reviewed = useMemo(() => applyReview(results, review), [results, review]);
+  const findings = useMemo(() => numberFindings(reviewed.pages), [reviewed]);
+  const summary = useMemo(() => summarize(reviewed.pages), [reviewed]);
   const done = pages.filter((p) => p.status === "ok" || p.status === "no_verificada").length;
   // Con varias páginas en vuelo no hay una "actual": se cuenta cuántas están listas.
   const scanningNow = pages.some((p) => p.status === "analizando" && p.scanned);
@@ -300,7 +314,14 @@ export function DetectorApp() {
         const page = await loaded.doc.getPage(n);
         geometry[n] = { view: page.view as [number, number, number, number], rotate: page.rotate };
       }
-      const pdf = await buildMarkedPdf({ bytes: loaded.bytes, fileName: loaded.name, pages: results, geometry, showNear });
+      const pdf = await buildMarkedPdf({
+        bytes: loaded.bytes,
+        fileName: loaded.name,
+        pages: reviewed.pages,
+        geometry,
+        showNear,
+        dismissedCount: reviewed.dismissed.length,
+      });
       const blob = new Blob([pdf as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -315,6 +336,31 @@ export function DetectorApp() {
   };
 
   const onCrops = useCallback((c: Record<string, string>) => setCrops((prev) => ({ ...prev, ...c })), []);
+
+  /** Cambia la revisión, la guarda (si hay hash) y deja el estado anterior para "Deshacer". */
+  const changeReview = (next: Review) => {
+    if (next === review) return;
+    setUndoStack((s) => [...s, review].slice(-50));
+    setReview(next);
+    if (loaded?.hash) saveReview(loaded.hash, next);
+  };
+  const markOk = (id: string) => {
+    const f = findings.find((x) => x.id === id);
+    if (!f) return;
+    changeReview(dismiss(review, f));
+    if (selectedId === id) setSelectedId(null);
+  };
+  const undoReview = () => {
+    const prev = undoStack.at(-1);
+    if (!prev) return;
+    setUndoStack((s) => s.slice(0, -1));
+    setReview(prev);
+    if (loaded?.hash) saveReview(loaded.hash, prev);
+  };
+  const toggleDismissed = () => {
+    setShowDismissed((v) => !v);
+    requestAnimationFrame(() => document.getElementById("descartados")?.scrollIntoView({ block: "nearest" }));
+  };
 
   if (!loaded) {
     return (
@@ -372,6 +418,31 @@ export function DetectorApp() {
             </div>
           </dl>
 
+          {(reviewed.dismissed.length > 0 || undoStack.length > 0) && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-gris" aria-live="polite">
+                <span className="num font-semibold text-tinta">{reviewed.dismissed.length}</span>{" "}
+                {reviewed.dismissed.length === 1 ? "descartado" : "descartados"}
+              </span>
+              {reviewed.dismissed.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleDismissed}
+                  aria-expanded={showDismissed}
+                  aria-controls="descartados"
+                  className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 font-medium hover:bg-papel"
+                >
+                  {showDismissed ? "Ocultar descartados" : "Ver descartados"}
+                </button>
+              )}
+              {undoStack.length > 0 && (
+                <button type="button" onClick={undoReview} className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 font-medium hover:bg-papel">
+                  Deshacer
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="ml-auto flex gap-2">
             <button
               type="button"
@@ -415,6 +486,13 @@ export function DetectorApp() {
 
       <div className="mx-auto grid w-full max-w-[1600px] flex-1 gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-8">
+          {showDismissed && reviewed.dismissed.length > 0 && (
+            <DismissedList
+              items={reviewed.dismissed}
+              onRestore={(page, firma) => changeReview(restore(review, page, firma))}
+              onClose={() => setShowDismissed(false)}
+            />
+          )}
           {hasScanned && (
           <p className="flex gap-2 rounded border border-cercania/40 bg-cercania-suave px-3 py-2 text-sm text-tinta">
             <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 h-4 w-4 shrink-0 text-cercania" fill="currentColor">
@@ -437,6 +515,7 @@ export function DetectorApp() {
               showNear={showNear}
               zoom={zoom}
               onSelect={select}
+              onDismiss={markOk}
               onCrops={onCrops}
               onRetry={() => retry(p.page)}
               onZoomChange={onZoomChange}
@@ -454,6 +533,7 @@ export function DetectorApp() {
               showNear={showNear}
               onToggleNear={setShowNear}
               onSelect={select}
+              onDismiss={markOk}
               onRetry={retry}
             />
           </div>

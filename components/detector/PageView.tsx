@@ -37,6 +37,8 @@ type Props = {
   showNear: boolean;
   zoom: ZoomCommand | null;
   onSelect: (id: string) => void;
+  /** "Está bien" sobre el hallazgo seleccionado: lo descarta (se puede deshacer). */
+  onDismiss: (id: string) => void;
   onCrops: (crops: Record<string, string>) => void;
   onRetry: () => void;
   /** El usuario tocó el zoom a mano (pellizco, arrastre, rueda) o pidió la página completa. */
@@ -66,6 +68,7 @@ export function PageView({
   showNear,
   zoom,
   onSelect,
+  onDismiss,
   onCrops,
   onRetry,
   onZoomChange,
@@ -350,6 +353,7 @@ export function PageView({
   };
 
   const visible = findings.filter((f) => showNear || f.severity !== "cercania");
+  const selectedHere = visible.find((f) => f.id === selectedId) ?? null;
   const kindLabel =
     result?.kind === "image" ? "Escaneada · revisada con IA" : result?.kind === "vector" ? "Texto del PDF" : result?.kind === "empty" ? "Sin contenido" : null;
   const clashes = findings.filter((f) => f.severity === "choque").length;
@@ -504,6 +508,23 @@ export function PageView({
           </div>
         )}
       </div>
+      {selectedHere && (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-linea bg-hoja px-3 py-2 text-sm">
+          <span className="min-w-0 flex-1">
+            <span className="font-semibold">Hallazgo {selectedHere.n}</span>
+            {" · "}
+            {SEVERITY_LABEL[selectedHere.severity]}
+            {selectedHere.texts.length > 0 && <span className="text-gris"> · {selectedHere.texts.join(" × ")}</span>}
+          </span>
+          <button
+            type="button"
+            onClick={() => onDismiss(selectedHere.id)}
+            className="rounded border border-linea-fuerte bg-hoja px-3 py-1.5 font-medium hover:bg-papel"
+          >
+            Está bien
+          </button>
+        </div>
+      )}
       {result?.error && status === "no_verificada" && <p className="mt-2 text-sm text-cercania">{result.error}</p>}
       {result?.lowResolution && (status === "ok" || status === "no_verificada") && (
         <p role="note" className="mt-2 text-sm text-cercania">

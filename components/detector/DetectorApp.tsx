@@ -262,9 +262,21 @@ export function DetectorApp() {
         // El marco de la página queda centrado en pantalla; el zoom ocurre dentro del marco.
         const frame = document.getElementById(`marco-${f.page}`);
         if (frame) {
+          // Espacio libre entre la barra de arriba (si está fija) y la del modo guiado (si está).
+          const bar = document.getElementById("barra-superior");
+          const top = bar && getComputedStyle(bar).position === "sticky" ? bar.getBoundingClientRect().bottom : 0;
+          const bottom = window.innerHeight - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--guia-alto")) || 0);
           const r = frame.getBoundingClientRect();
-          const visible = r.top >= 90 && r.bottom <= window.innerHeight;
-          if (!visible) frame.scrollIntoView({ behavior, block: "center" });
+          const visible = r.top >= top && r.bottom <= bottom;
+          if (!visible) window.scrollBy({ top: r.top + r.height / 2 - (top + bottom) / 2, behavior });
+          // Cerca del borde de la hoja el zoom no puede centrar el hallazgo en el marco: cuando
+          // termina la animación, si la caja quedó fuera del espacio libre, se la trae al centro.
+          window.setTimeout(() => {
+            const box = document.getElementById(`caja-${id}`)?.getBoundingClientRect();
+            if (box && (box.top < top || box.bottom > bottom)) {
+              window.scrollBy({ top: box.top + box.height / 2 - (top + bottom) / 2, behavior });
+            }
+          }, 600); // un poco más que la animación del zoom (ANIMATION_MS = 520 en PageView)
         }
         document.getElementById(`caja-${id}`)?.focus({ preventScroll: true });
         document.getElementById(`item-${id}`)?.scrollIntoView({ behavior, block: "nearest" });
@@ -430,7 +442,11 @@ export function DetectorApp() {
   return (
     <div className="flex flex-1 flex-col">
       {/* Resumen y acciones: queda fijo arriba mientras se recorre el plano. */}
-      <div className="sticky top-0 z-20 border-b border-linea bg-papel/95 backdrop-blur-sm">
+      {/* En el modo guiado, en pantallas chicas, la barra de arriba no queda fija: el plano necesita el lugar. */}
+      <div
+        id="barra-superior"
+        className={`sticky top-0 z-20 border-b border-linea bg-papel/95 backdrop-blur-sm ${guided ? "max-sm:static" : ""}`}
+      >
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
           <div className="min-w-0">
             <p className="truncate font-display font-semibold" title={loaded.name}>

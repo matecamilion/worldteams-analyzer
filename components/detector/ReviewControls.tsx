@@ -14,6 +14,8 @@ type Props = {
   onDecide: (finding: Finding, state: ReviewState) => void;
   /** "md": botones más grandes (barra del seleccionado y modo guiado). */
   size?: "sm" | "md";
+  /** No repetir "Choque confirmado" cuando el renglón de arriba ya lo dice (modo guiado). */
+  hideLabel?: boolean;
 };
 
 /** Ícono de "confirmado": la marca no depende sólo del color. */
@@ -37,7 +39,7 @@ function CrossIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
  * La revisión de un hallazgo: si está por revisar, la pregunta con "Sí, es real" y "No, falsa
  * alarma"; si ya está confirmado, el estado con la opción de cambiarlo o volver a por revisar.
  */
-export function ReviewControls({ finding, onDecide, size = "sm" }: Props) {
+export function ReviewControls({ finding, onDecide, size = "sm", hideLabel = false }: Props) {
   const btn =
     size === "md"
       ? "inline-flex items-center gap-1.5 rounded px-3 py-2 text-sm font-semibold"
@@ -54,9 +56,11 @@ export function ReviewControls({ finding, onDecide, size = "sm" }: Props) {
   if (finding.reviewState === "confirmado") {
     return (
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className={`inline-flex items-center gap-1.5 font-semibold text-ok ${size === "md" ? "text-sm" : "text-xs"}`}>
-          <CheckIcon /> {CONFIRMED_LABEL[finding.severity]}
-        </span>
+        {!hideLabel && (
+          <span className={`inline-flex items-center gap-1.5 font-semibold text-ok ${size === "md" ? "text-sm" : "text-xs"}`}>
+            <CheckIcon /> {CONFIRMED_LABEL[finding.severity]}
+          </span>
+        )}
         <button type="button" onClick={() => onDecide(finding, "falsa_alarma")} className={quiet}>
           Era una falsa alarma
         </button>

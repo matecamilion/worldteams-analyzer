@@ -267,3 +267,68 @@ test("contadores y numeración: la pantalla y el PDF exportado coinciden despué
     assert.equal(lines[at - 8], String(f.n), `n.º de ${f.texts.join(" / ")}`);
   }
 });
+
+test("informe completo e informe revisado: mismos números que la pantalla, estado por fila y cantidades de la revisión", async () => {
+  const src = await PDFDocument.create();
+  src.addPage([W, H]);
+  const bytes = await src.save();
+  const findings = [
+    finding("p1-choque-1", { x: 100, y: 100, w: 80, h: 12 }, { texts: ["SIN", "REVISAR"] }),
+    finding("p1-choque-2", { x: 100, y: 300, w: 80, h: 12 }, { texts: ["BAÑO", "PASO"] }),
+    finding("p1-choque-3", { x: 100, y: 500, w: 80, h: 12 }, { texts: ["FALSA", "ALARMA"] }),
+    finding("p1-choque-4", { x: 100, y: 700, w: 80, h: 12 }, { texts: ["ESTAR", "COMEDOR"] }),
+  ];
+  let review = decide({}, findings[1], "confirmado");
+  review = decide(review, findings[2], "falsa_alarma");
+  review = decide(review, findings[3], "confirmado");
+  const reviewed = applyReview([page(findings)], review);
+  const screen = numberFindings(reviewed.pages);
+  assert.deepEqual(screen.map((f) => [f.n, f.texts[0], f.reviewState]), [
+    [1, "SIN", "por_revisar"],
+    [2, "BAÑO", "confirmado"],
+    [3, "ESTAR", "confirmado"],
+  ]);
+
+  const build = async (report: "completo" | "revisado") => {
+    const doc = await loadPdf(
+      await buildMarkedPdf({
+        bytes,
+        fileName: "x.pdf",
+        pages: reviewed.pages,
+        geometry: { 1: { view: [0, 0, W, H], rotate: 0 } },
+        showNear: true,
+        falseAlarmCount: reviewed.counts.falsasAlarmas,
+        report,
+      }),
+    );
+    assert.equal(doc.numPages, 2, "el plano y una hoja de resumen");
+    return (await (await doc.getPage(doc.numPages)).getTextContent()).items.map((i) => ("str" in i ? i.str : "")).filter((t) => t.trim());
+  };
+  /** n.º y estado de cada fila: el n.º y el estado van antes de la zona y los textos. */
+  const rows = (lines: string[]) =>
+    lines.flatMap((l, i) => (l.includes(" / ") ? [[lines[i - 4], lines[i - 2], l]] : []));
+
+  const full = await build("completo");
+  assert.ok(full.includes("Textos superpuestos: informe completo"));
+  assert.ok(full.includes("Revisión del usuario: 2 confirmados · 1 falsa alarma · 1 sin revisar."));
+  assert.ok(full.some((l) => l.startsWith("Cada marca lleva su estado")));
+  assert.deepEqual(rows(full), [
+    ["1", "Posible choque", "SIN / REVISAR"],
+    ["2", "Choque confirmado", "BAÑO / PASO"],
+    ["3", "Choque confirmado", "ESTAR / COMEDOR"],
+  ]);
+  assert.ok(full.includes("3 choques · 0 duplicados · 0 cercanías"), "los mismos contadores que la pantalla");
+  assert.equal(summarize(reviewed.pages).choques, 3);
+
+  const done = await build("revisado");
+  assert.ok(done.includes("Textos superpuestos: informe revisado"));
+  assert.ok(done.includes("Revisión del usuario: 2 confirmados · 1 falsa alarma · 1 sin revisar."));
+  // El párrafo puede partirse en renglones: se busca en el texto unido.
+  assert.match(done.join(" "), /1 hallazgo sin revisar no se incluye\. Los números son los mismos que en la pantalla\./);
+  assert.deepEqual(rows(done), [
+    ["2", "Choque confirmado", "BAÑO / PASO"],
+    ["3", "Choque confirmado", "ESTAR / COMEDOR"],
+  ], "sólo lo confirmado, con el n.º de la pantalla");
+  assert.ok(done.includes("2 choques · 0 duplicados · 0 cercanías"), "cuenta sólo lo confirmado");
+  for (const l of [...full, ...done]) assert.doesNotMatch(l, /FALSA/, "la falsa alarma no va en ninguno");
+});

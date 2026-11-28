@@ -82,7 +82,8 @@ export function DetectorApp() {
   const [running, setRunning] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNear, setShowNear] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  /** Qué informe se está armando (null: ninguno). */
+  const [exporting, setExporting] = useState<"completo" | "revisado" | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [zoom, setZoom] = useState<ZoomCommand | null>(null);
@@ -313,9 +314,9 @@ export function DetectorApp() {
   }, [navigable, selectedId, select, showFullPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Arma el PDF con marcas en el navegador (pdf-lib se carga recién acá): nada pasa por el servidor. */
-  const downloadMarkedPdf = async () => {
+  const downloadMarkedPdf = async (report: "completo" | "revisado") => {
     if (!loaded || exporting) return;
-    setExporting(true);
+    setExporting(report);
     setExportError(null);
     try {
       const { buildMarkedPdf, markedFileName } = await import("@/lib/detector/marked-pdf");
@@ -332,17 +333,18 @@ export function DetectorApp() {
         geometry,
         showNear,
         falseAlarmCount: reviewed.counts.falsasAlarmas,
+        report,
       });
       const blob = new Blob([pdf as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = markedFileName(loaded.name);
+      a.download = markedFileName(loaded.name, report);
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
     } catch {
       setExportError("No se pudo armar el PDF con marcas. Si el archivo está protegido, probá con una copia sin protección.");
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -504,16 +506,27 @@ export function DetectorApp() {
             </div>
           )}
 
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gris">Descargar PDF:</span>
             <button
               type="button"
-              onClick={downloadMarkedPdf}
-              disabled={running || exporting}
-              aria-busy={exporting}
-              title={running ? "Disponible cuando termine el análisis" : undefined}
+              onClick={() => downloadMarkedPdf("completo")}
+              disabled={running || !!exporting}
+              aria-busy={exporting === "completo"}
+              title={running ? "Disponible cuando termine el análisis" : "Confirmados y sin revisar, cada uno con su estado"}
               className="rounded bg-verde px-3.5 py-2 text-sm font-semibold text-papel hover:bg-tinta disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {exporting ? "Armando el PDF…" : "Descargar PDF con marcas"}
+              {exporting === "completo" ? "Armando el PDF…" : "Informe completo"}
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadMarkedPdf("revisado")}
+              disabled={running || !!exporting}
+              aria-busy={exporting === "revisado"}
+              title={running ? "Disponible cuando termine el análisis" : "Sólo lo que confirmaste"}
+              className="rounded border border-verde bg-hoja px-3.5 py-2 text-sm font-semibold text-verde hover:bg-papel disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exporting === "revisado" ? "Armando el PDF…" : "Informe revisado"}
             </button>
             <button type="button" onClick={reset} className="rounded border border-linea-fuerte bg-hoja px-3.5 py-2 text-sm font-medium hover:bg-papel">
               Analizar otro PDF

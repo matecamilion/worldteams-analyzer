@@ -1,8 +1,8 @@
 // PDF con marcas: el PDF original con una caja por hallazgo y una hoja de resumen al final.
 // Corre igual en el navegador y en Node (no usa DOM): nada pasa por el servidor.
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
+import { LineCapStyle, PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import type { Rect } from "./geometry";
-import { AI_TEXT_NOTE, numberFindings, SEVERITY_LABEL, summarize, type NumberedFinding } from "./report";
+import { AI_TEXT_NOTE, CONFIRMED_LABEL, numberFindings, POSSIBLE_LABEL, summarize, type NumberedFinding } from "./report";
 import { LOW_RES_WARNING, type Finding, type PageResult, type Severity } from "./types";
 
 /** Lo que pdfjs sabe de la página: `view` (CropBox ∩ MediaBox, [x0, y0, x1, y1]) y `/Rotate`. */
@@ -120,8 +120,14 @@ export function toWinAnsi(text: string): string {
   return out;
 }
 
-export function markedFileName(name: string): string {
-  return `${name.replace(/\.pdf$/i, "")}-con-marcas.pdf`;
+/**
+ * "completo": confirmados y sin revisar, cada uno con su estado. "revisado": sólo lo confirmado
+ * por la persona (incluye lo agregado a mano). Las falsas alarmas no van en ninguno.
+ */
+export type ReportKind = "completo" | "revisado";
+
+export function markedFileName(name: string, report: ReportKind = "completo"): string {
+  return `${name.replace(/\.pdf$/i, "")}-${report === "revisado" ? "revisado" : "con-marcas"}.pdf`;
 }
 
 const hex = (h: string): RGB => rgb(parseInt(h.slice(1, 3), 16) / 255, parseInt(h.slice(3, 5), 16) / 255, parseInt(h.slice(5, 7), 16) / 255);
@@ -131,6 +137,7 @@ const FILL_OPACITY: Record<Severity, number> = { choque: 0.1, cercania: 0.08, du
 const WHITE = rgb(1, 1, 1);
 const INK = hex("#0d211f");
 const GRAY = hex("#5b6b68");
+const OK = hex("#2f6b4f");
 
 function drawMark(page: PDFPage, f: NumberedFinding, result: PageResult, g: PageGeometry, bold: PDFFont) {
   const size = viewportSize(g);
@@ -167,6 +174,29 @@ function drawMark(page: PDFPage, f: NumberedFinding, result: PageResult, g: Page
   const along = toPdf([screen.x + 1, screen.y]);
   const angle = (Math.atan2(along[1] - cy, along[0] - cx) * 180) / Math.PI;
   page.drawText(label, { x: origin[0], y: origin[1], size: fontSize, font: bold, color: WHITE, rotate: degrees(angle) });
+
+  // Estado de la revisión en la esquina superior derecha: no depende sólo del color (✓ o ?).
+  const sx = screen.x + screen.w;
+  const sr = st.radius * 0.9;
+  const [ex, ey] = toPdf([sx, screen.y]);
+  const confirmed = f.reviewState === "confirmado";
+  page.drawCircle({ x: ex, y: ey, size: sr, color: confirmed ? OK : GRAY, borderColor: WHITE, borderWidth: st.halo * 2 });
+  if (confirmed) {
+    // El ✓ se dibuja con dos trazos en el espacio de pantalla, así queda derecho con cualquier /Rotate.
+    const pt = (dx: number, dy: number) => {
+      const [x, y] = toPdf([sx + dx * sr, screen.y + dy * sr]);
+      return { x, y };
+    };
+    const thickness = sr * 0.32;
+    page.drawLine({ start: pt(-0.5, 0.02), end: pt(-0.12, 0.4), thickness, color: WHITE, lineCap: LineCapStyle.Round });
+    page.drawLine({ start: pt(-0.12, 0.4), end: pt(0.52, -0.38), thickness, color: WHITE, lineCap: LineCapStyle.Round });
+  } else {
+    const q = "?";
+    const qs = sr * 1.25;
+    const qw = bold.widthOfTextAtSize(q, qs);
+    const qo = toPdf([sx - qw / 2, screen.y + (qs * 0.718) / 2]);
+    page.drawText(q, { x: qo[0], y: qo[1], size: qs, font: bold, color: WHITE, rotate: degrees(angle) });
+  }
 }
 
 function formatDate(d: Date): string {
@@ -197,7 +227,15 @@ function wrap(text: string, font: PDFFont, size: number, width: number): string[
   return lines.length ? lines : [""];
 }
 
-type SummaryInput = { fileName: string; pages: PageResult[]; findings: NumberedFinding[]; showNear: boolean; date: Date; dismissedCount: number };
+type SummaryInput = {
+  fileName: string;
+  pages: PageResult[];
+  findings: NumberedFinding[];
+  showNear: boolean;
+  date: Date;
+  report: ReportKind;
+  review: { confirmados: number; porRevisar: number; falsasAlarmas: number };
+};
 
 /** Hoja(s) de resumen en A4 vertical al final del documento. */
 function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDFFont; bold: PDFFont; italic: PDFFont }) {
@@ -229,10 +267,10 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
   };
 
   // Columnas de la lista.
-  const col = { n: M, page: M + 34, type: M + 70, zone: M + 136, texts: M + 290 };
+  const col = { n: M, page: M + 34, type: M + 66, zone: M + 160, texts: M + 290 };
   const colEnd = W - M;
   const tableHeader = () => {
-    for (const [k, label] of [["n", "N.º"], ["page", "Pág."], ["type", "Tipo"], ["zone", "Zona"], ["texts", "Textos involucrados"]] as const) {
+    for (const [k, label] of [["n", "N.º"], ["page", "Pág."], ["type", "Estado"], ["zone", "Zona"], ["texts", "Textos involucrados"]] as const) {
       text(label, col[k], 8.5, bold, GRAY);
     }
     y -= 6;
@@ -241,7 +279,7 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
   };
 
   newSheet();
-  text("Textos superpuestos: resumen", M, 18, bold);
+  text(input.report === "revisado" ? "Textos superpuestos: informe revisado" : "Textos superpuestos: informe completo", M, 18, bold);
   y -= 28;
   const s = summarize(input.pages);
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -255,13 +293,34 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
     bold,
   );
   y -= 4;
+  const rv = input.review;
+  para(
+    `Revisión del usuario: ${plural(rv.confirmados, "confirmado", "confirmados")} · ${plural(rv.falsasAlarmas, "falsa alarma", "falsas alarmas")} · ${rv.porRevisar} sin revisar.`,
+    10.5,
+    bold,
+  );
+  if (input.report === "revisado") {
+    para(
+      `Este informe incluye sólo lo confirmado. ${rv.porRevisar ? `${plural(rv.porRevisar, "hallazgo sin revisar no se incluye", "hallazgos sin revisar no se incluyen")}. ` : ""}Los números son los mismos que en la pantalla.`,
+      9.5,
+      regular,
+      GRAY,
+    );
+  } else if (rv.porRevisar) {
+    para(
+      `Cada marca lleva su estado en la esquina: un tilde verde si el usuario la confirmó, un signo "?" gris si está sin revisar (la herramienta la propone y nadie la confirmó todavía).`,
+      9.5,
+      regular,
+      GRAY,
+    );
+  }
   const manual = input.findings.filter((f) => f.source === "manual").length;
   if (manual > 0) {
     para(`${plural(manual, "error marcado", "errores marcados")} a mano por el usuario (se cuentan como choques).`, 9.5, regular, GRAY);
   }
-  if (input.dismissedCount > 0) {
+  if (rv.falsasAlarmas > 0) {
     para(
-      `${plural(input.dismissedCount, "hallazgo descartado", "hallazgos descartados")} por el usuario (${input.dismissedCount === 1 ? "marcado" : "marcados"} como "Está bien"): no se ${input.dismissedCount === 1 ? "cuenta ni se marca" : "cuentan ni se marcan"}.`,
+      `${plural(rv.falsasAlarmas, "falsa alarma", "falsas alarmas")} según la revisión del usuario: no se ${rv.falsasAlarmas === 1 ? "cuenta ni se marca" : "cuentan ni se marcan"}.`,
       9.5,
       regular,
       GRAY,
@@ -312,7 +371,9 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
       const shown = f.source === "manual" ? `Marcado a mano${f.note ? `: ${f.note}` : ""}` : f.texts.join(" / ") || "Textos ilegibles";
       const texts = wrap(toWinAnsi(shown), regular, size, colEnd - col.texts);
       const note = f.source === "vision" ? wrap(toWinAnsi(AI_TEXT_NOTE), italic, size - 1, colEnd - col.texts) : [];
-      const rows = Math.max(zone.length, texts.length + note.length);
+      const confirmed = f.reviewState === "confirmado";
+      const state = wrap(toWinAnsi((confirmed ? CONFIRMED_LABEL : POSSIBLE_LABEL)[f.severity]), bold, size, col.zone - col.type - 8);
+      const rows = Math.max(zone.length, texts.length + note.length, state.length);
       ensure(rows * lh + 6);
       // Número en un círculo del color del hallazgo, como en la lista de la pantalla.
       const r = 6.5;
@@ -321,8 +382,8 @@ function addSummary(doc: PDFDocument, input: SummaryInput, fonts: { regular: PDF
       const ls = label.length > 2 ? 6 : 7.5;
       page.drawText(label, { x: col.n + r - bold.widthOfTextAtSize(label, ls) / 2, y: y + size * 0.35 - ls * 0.36, size: ls, font: bold, color: WHITE });
       text(String(f.page), col.page, size);
-      text(SEVERITY_LABEL[f.severity], col.type, size, bold, COLOR[f.severity]);
       const top = y;
+      state.forEach((l, i) => page.drawText(l, { x: col.type, y: top - i * lh, size, font: bold, color: confirmed ? OK : COLOR[f.severity] }));
       zone.forEach((l, i) => page.drawText(l, { x: col.zone, y: top - i * lh, size, font: regular, color: INK }));
       texts.forEach((l, i) => page.drawText(l, { x: col.texts, y: top - i * lh, size, font: regular, color: INK }));
       note.forEach((l, i) => page.drawText(l, { x: col.texts, y: top - (texts.length + i) * lh, size: size - 1, font: italic, color: GRAY }));
@@ -345,8 +406,10 @@ export type MarkedPdfInput = {
   geometry: Record<number, PageGeometry>;
   showNear: boolean;
   date?: Date;
-  /** Hallazgos que la persona marcó como "Está bien" (ya sacados de `pages`): sólo se informa cuántos. */
-  dismissedCount?: number;
+  /** Hallazgos que la persona marcó como falsa alarma (ya sacados de `pages`): sólo se informa cuántos. */
+  falseAlarmCount?: number;
+  /** Qué se marca: todo lo que no es falsa alarma ("completo", por defecto) o sólo lo confirmado. */
+  report?: ReportKind;
 };
 
 /** Arma el PDF con marcas. Lanza si pdf-lib no puede abrir el archivo (p. ej. protegido). */
@@ -355,7 +418,19 @@ export async function buildMarkedPdf(input: MarkedPdfInput): Promise<Uint8Array>
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
-  const findings = numberFindings(input.pages);
+  const report = input.report ?? "completo";
+  // Se numera con todo (como la pantalla) y después se filtra: en el informe revisado el n.º de
+  // cada hallazgo sigue siendo el de la pantalla.
+  const all = numberFindings(input.pages);
+  const findings = report === "revisado" ? all.filter((f) => f.reviewState === "confirmado") : all;
+  const counted = (f: NumberedFinding) => input.showNear || f.severity !== "cercania";
+  const review = {
+    confirmados: all.filter((f) => counted(f) && f.reviewState === "confirmado").length,
+    porRevisar: all.filter((f) => counted(f) && f.reviewState !== "confirmado").length,
+    falsasAlarmas: input.falseAlarmCount ?? 0,
+  };
+  const keep = new Set(findings.map((f) => f.id));
+  const pages = report === "revisado" ? input.pages.map((p) => ({ ...p, findings: p.findings.filter((f) => keep.has(f.id)) })) : input.pages;
   const byPage = new Map(input.pages.map((p) => [p.page, p]));
   const pdfPages = doc.getPages();
 
@@ -370,7 +445,7 @@ export async function buildMarkedPdf(input: MarkedPdfInput): Promise<Uint8Array>
 
   addSummary(
     doc,
-    { fileName: input.fileName, pages: input.pages, findings, showNear: input.showNear, date: input.date ?? new Date(), dismissedCount: input.dismissedCount ?? 0 },
+    { fileName: input.fileName, pages, findings, showNear: input.showNear, date: input.date ?? new Date(), report, review },
     { regular, bold, italic },
   );
   return doc.save();

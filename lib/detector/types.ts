@@ -63,6 +63,10 @@ export type Finding = {
   modelBox?: Rect;
   /** Nota que escribió la persona (sólo hallazgos marcados a mano). */
   note?: string;
+  /** Estado de la revisión de la persona (lo pone applyReview; las falsas alarmas no se muestran). */
+  reviewState?: "por_revisar" | "confirmado";
+  /** Firma de la decisión guardada que reconoció este hallazgo (para cambiarla después). */
+  reviewFirma?: string;
 };
 
 export const ORIGIN_LABEL = { vector: "Texto del PDF", vision: "Detectado por IA", manual: "Marcado a mano" } as const;

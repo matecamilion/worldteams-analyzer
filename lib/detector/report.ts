@@ -6,6 +6,32 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
   duplicado: "Duplicado",
 };
 
+/** Sin revisar: la herramienta lo propone, la persona todavía no decidió. */
+export const POSSIBLE_LABEL: Record<Severity, string> = {
+  choque: "Posible choque",
+  cercania: "Posible cercanía",
+  duplicado: "Posible duplicado",
+};
+/** Confirmado por la persona (o agregado a mano). */
+export const CONFIRMED_LABEL: Record<Severity, string> = {
+  choque: "Choque confirmado",
+  cercania: "Cercanía confirmada",
+  duplicado: "Duplicado confirmado",
+};
+/** La pregunta que se le hace a la persona sobre cada hallazgo sin revisar. */
+export const REVIEW_QUESTION: Record<Severity, string> = {
+  choque: "¿Es un choque real?",
+  cercania: "¿Es una cercanía real?",
+  duplicado: "¿Es un duplicado real?",
+};
+export const FALSE_ALARM_LABEL = "Falsa alarma";
+export const CONFIRM_ACTION = "Sí, es real";
+export const FALSE_ALARM_ACTION = "No, falsa alarma";
+
+/** Etiqueta de un hallazgo según su estado de revisión. */
+export const reviewLabel = (f: Pick<Finding, "severity" | "reviewState">) =>
+  f.reviewState === "confirmado" ? CONFIRMED_LABEL[f.severity] : POSSIBLE_LABEL[f.severity];
+
 /** Hallazgo con número correlativo en todo el documento (el que se ve sobre la hoja). */
 export type NumberedFinding = Finding & { n: number };
 

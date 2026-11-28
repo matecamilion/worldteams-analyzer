@@ -7,11 +7,12 @@ import { recordFinishedRun, type PageOutcome } from "@/lib/client/historial";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
 import { loadReview, saveReview } from "@/lib/client/review-store";
 import { PAGINAS_EN_PARALELO, runPages, type PageAttempt } from "@/lib/client/run-pages";
-import { addManual, applyReview, dismiss, removeManual, restore, setManualNote, type Review } from "@/lib/detector/review";
+import { addManual, applyReview, decide, nextToReview, removeManual, setManualNote, type Review, type ReviewState } from "@/lib/detector/review";
 import { numberFindings, summarize } from "@/lib/detector/report";
-import type { PageResult } from "@/lib/detector/types";
+import type { Finding, PageResult } from "@/lib/detector/types";
 import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
-import { DismissedList } from "./DismissedList";
+import { FalseAlarmList } from "./FalseAlarmList";
+import { GuidedReview } from "./GuidedReview";
 import { ResultsPanel } from "./ResultsPanel";
 import { UploadZone } from "./UploadZone";
 
@@ -81,18 +82,21 @@ export function DetectorApp() {
   const [running, setRunning] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNear, setShowNear] = useState(true);
-  const [exporting, setExporting] = useState(false);
+  /** Qué informe se está armando (null: ninguno). */
+  const [exporting, setExporting] = useState<"completo" | "revisado" | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [crops, setCrops] = useState<Record<string, string>>({});
   const [zoom, setZoom] = useState<ZoomCommand | null>(null);
   /** Página que tiene zoom (por un hallazgo o por un gesto), para que Esc sepa a quién volver. */
   const zoomedPage = useRef<number | null>(null);
   const runId = useRef(0);
-  /** Revisión del usuario ("Está bien"): se guarda por PDF en este navegador. */
+  /** Revisión de la persona (confirmados, falsas alarmas, agregados a mano): se guarda por PDF en este navegador. */
   const [review, setReview] = useState<Review>({});
   /** Estados anteriores de la revisión, para "Deshacer" (sólo en memoria). */
   const [undoStack, setUndoStack] = useState<Review[]>([]);
-  const [showDismissed, setShowDismissed] = useState(false);
+  const [showFalseAlarms, setShowFalseAlarms] = useState(false);
+  /** "Revisar uno por uno": recorre los hallazgos por revisar con la pregunta abajo. */
+  const [guided, setGuided] = useState(false);
 
   const setPage = (page: number, patch: Partial<PageEntry>) =>
     setPages((prev) => prev.map((p) => (p.page === page ? { ...p, ...patch } : p)));
@@ -157,7 +161,8 @@ export function DetectorApp() {
         // La revisión sigue al archivo (mismo SHA-256), no a la corrida: sobrevive a reanalizar.
         setReview(hash ? loadReview(hash) : {});
         setUndoStack([]);
-        setShowDismissed(false);
+        setShowFalseAlarms(false);
+        setGuided(false);
         setSelectedId(null);
         setZoom(null);
         zoomedPage.current = null;
@@ -235,6 +240,7 @@ export function DetectorApp() {
   const reviewed = useMemo(() => applyReview(results, review), [results, review]);
   const findings = useMemo(() => numberFindings(reviewed.pages), [reviewed]);
   const summary = useMemo(() => summarize(reviewed.pages), [reviewed]);
+  const rc = reviewed.counts;
   const done = pages.filter((p) => p.status === "ok" || p.status === "no_verificada").length;
   // Con varias páginas en vuelo no hay una "actual": se cuenta cuántas están listas.
   const scanningNow = pages.some((p) => p.status === "analizando" && p.scanned);
@@ -256,9 +262,21 @@ export function DetectorApp() {
         // El marco de la página queda centrado en pantalla; el zoom ocurre dentro del marco.
         const frame = document.getElementById(`marco-${f.page}`);
         if (frame) {
+          // Espacio libre entre la barra de arriba (si está fija) y la del modo guiado (si está).
+          const bar = document.getElementById("barra-superior");
+          const top = bar && getComputedStyle(bar).position === "sticky" ? bar.getBoundingClientRect().bottom : 0;
+          const bottom = window.innerHeight - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--guia-alto")) || 0);
           const r = frame.getBoundingClientRect();
-          const visible = r.top >= 90 && r.bottom <= window.innerHeight;
-          if (!visible) frame.scrollIntoView({ behavior, block: "center" });
+          const visible = r.top >= top && r.bottom <= bottom;
+          if (!visible) window.scrollBy({ top: r.top + r.height / 2 - (top + bottom) / 2, behavior });
+          // Cerca del borde de la hoja el zoom no puede centrar el hallazgo en el marco: cuando
+          // termina la animación, si la caja quedó fuera del espacio libre, se la trae al centro.
+          window.setTimeout(() => {
+            const box = document.getElementById(`caja-${id}`)?.getBoundingClientRect();
+            if (box && (box.top < top || box.bottom > bottom)) {
+              window.scrollBy({ top: box.top + box.height / 2 - (top + bottom) / 2, behavior });
+            }
+          }, 600); // un poco más que la animación del zoom (ANIMATION_MS = 520 en PageView)
         }
         document.getElementById(`caja-${id}`)?.focus({ preventScroll: true });
         document.getElementById(`item-${id}`)?.scrollIntoView({ behavior, block: "nearest" });
@@ -277,34 +295,40 @@ export function DetectorApp() {
     zoomedPage.current = zoomed ? page : zoomedPage.current === page ? null : zoomedPage.current;
   }, []);
 
-  // Teclado: ← → recorren los hallazgos visibles; Esc vuelve a la página completa.
-  const navigable = useMemo(() => findings.filter((f) => showNear || f.severity !== "cercania"), [findings, showNear]);
+  // Teclado: ← → recorren los hallazgos visibles; Esc vuelve a la página completa (y sale del modo guiado).
+  const navigable = useMemo(
+    () => (guided ? findings : findings.filter((f) => showNear || f.severity !== "cercania")),
+    [findings, showNear, guided],
+  );
+  /** Anterior / siguiente hallazgo (teclas ← → y botones del modo guiado), dando la vuelta. */
+  const step = (dir: 1 | -1) => {
+    if (!navigable.length) return;
+    const i = navigable.findIndex((f) => f.id === selectedId);
+    const next = i === -1 ? (dir === 1 ? 0 : navigable.length - 1) : (i + dir + navigable.length) % navigable.length;
+    select(navigable[next].id);
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (e.altKey || e.ctrlKey || e.metaKey || el.closest("input, textarea, select, [contenteditable]")) return;
       if (e.key === "Escape") {
+        setGuided(false);
         showFullPage();
         return;
       }
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
       if (!navigable.length) return;
       e.preventDefault();
-      const i = navigable.findIndex((f) => f.id === selectedId);
-      const next =
-        i === -1
-          ? e.key === "ArrowRight" ? 0 : navigable.length - 1
-          : (i + (e.key === "ArrowRight" ? 1 : -1) + navigable.length) % navigable.length;
-      select(navigable[next].id);
+      step(e.key === "ArrowRight" ? 1 : -1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigable, selectedId, select, showFullPage]);
+  }, [navigable, selectedId, select, showFullPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Arma el PDF con marcas en el navegador (pdf-lib se carga recién acá): nada pasa por el servidor. */
-  const downloadMarkedPdf = async () => {
+  const downloadMarkedPdf = async (report: "completo" | "revisado") => {
     if (!loaded || exporting) return;
-    setExporting(true);
+    setExporting(report);
     setExportError(null);
     try {
       const { buildMarkedPdf, markedFileName } = await import("@/lib/detector/marked-pdf");
@@ -320,18 +344,19 @@ export function DetectorApp() {
         pages: reviewed.pages,
         geometry,
         showNear,
-        dismissedCount: reviewed.dismissed.length,
+        falseAlarmCount: reviewed.counts.falsasAlarmas,
+        report,
       });
       const blob = new Blob([pdf as Uint8Array<ArrayBuffer>], { type: "application/pdf" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = markedFileName(loaded.name);
+      a.download = markedFileName(loaded.name, report);
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
     } catch {
       setExportError("No se pudo armar el PDF con marcas. Si el archivo está protegido, probá con una copia sin protección.");
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -344,11 +369,10 @@ export function DetectorApp() {
     setReview(next);
     if (loaded?.hash) saveReview(loaded.hash, next);
   };
-  const markOk = (id: string) => {
-    const f = findings.find((x) => x.id === id);
-    if (!f) return;
-    changeReview(dismiss(review, f));
-    if (selectedId === id) setSelectedId(null);
+  /** La persona decide sobre un hallazgo: es real, es una falsa alarma o vuelve a por revisar. */
+  const decideOn = (f: Finding, state: ReviewState) => {
+    changeReview(decide(review, f, state));
+    if (state === "falsa_alarma" && selectedId === f.id) setSelectedId(null);
   };
   /** Recuadro dibujado a mano: se guarda como un choque "Marcado a mano" y queda seleccionado. */
   const addMark = (page: number, box: { x: number; y: number; w: number; h: number }, size: { w: number; h: number }) => {
@@ -378,9 +402,27 @@ export function DetectorApp() {
     setReview(prev);
     if (loaded?.hash) saveReview(loaded.hash, prev);
   };
-  const toggleDismissed = () => {
-    setShowDismissed((v) => !v);
-    requestAnimationFrame(() => document.getElementById("descartados")?.scrollIntoView({ block: "nearest" }));
+  /** Modo guiado: arranca en el primer hallazgo por revisar (o en el seleccionado, si lo está). */
+  const startGuided = () => {
+    setGuided(true);
+    const current = findings.find((f) => f.id === selectedId);
+    const first = current?.reviewState === "por_revisar" ? current : nextToReview(findings, null);
+    if (first) select(first.id);
+  };
+  const goNextPending = () => {
+    const f = nextToReview(findings, selectedId);
+    if (f) select(f.id);
+  };
+  /** En el modo guiado, decidir avanza al próximo por revisar; si no queda ninguno, se queda (y avisa). */
+  const decideGuided = (f: Finding, state: ReviewState) => {
+    decideOn(f, state);
+    if (state === "por_revisar") return;
+    const next = nextToReview(findings, f.id, f.id);
+    if (next) select(next.id);
+  };
+  const toggleFalseAlarms = () => {
+    setShowFalseAlarms((v) => !v);
+    requestAnimationFrame(() => document.getElementById("falsas-alarmas")?.scrollIntoView({ block: "nearest" }));
   };
 
   if (!loaded) {
@@ -400,7 +442,11 @@ export function DetectorApp() {
   return (
     <div className="flex flex-1 flex-col">
       {/* Resumen y acciones: queda fijo arriba mientras se recorre el plano. */}
-      <div className="sticky top-0 z-20 border-b border-linea bg-papel/95 backdrop-blur-sm">
+      {/* En el modo guiado, en pantallas chicas, la barra de arriba no queda fija: el plano necesita el lugar. */}
+      <div
+        id="barra-superior"
+        className={`sticky top-0 z-20 border-b border-linea bg-papel/95 backdrop-blur-sm ${guided ? "max-sm:static" : ""}`}
+      >
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
           <div className="min-w-0">
             <p className="truncate font-display font-semibold" title={loaded.name}>
@@ -439,23 +485,33 @@ export function DetectorApp() {
             </div>
           </dl>
 
-          {(reviewed.dismissed.length > 0 || undoStack.length > 0) && (
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              {reviewed.dismissed.length > 0 && (
-                <span className="text-gris" aria-live="polite">
-                  <span className="num font-semibold text-tinta">{reviewed.dismissed.length}</span>{" "}
-                  {reviewed.dismissed.length === 1 ? "descartado" : "descartados"}
-                </span>
-              )}
-              {reviewed.dismissed.length > 0 && (
+          {(rc.total > 0 || undoStack.length > 0) && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              <span className="text-gris" aria-live="polite">
+                Revisados <span className="num font-semibold text-tinta">{rc.revisados}</span> de <span className="num">{rc.total}</span>
+                {" · "}
+                <span className="num font-semibold text-ok">{rc.confirmados}</span> {rc.confirmados === 1 ? "confirmado" : "confirmados"}
+                {" · "}
+                <span className="num font-semibold text-tinta">{rc.falsasAlarmas}</span> {rc.falsasAlarmas === 1 ? "falsa alarma" : "falsas alarmas"}
+              </span>
+              {rc.total > 0 && !guided && (
                 <button
                   type="button"
-                  onClick={toggleDismissed}
-                  aria-expanded={showDismissed}
-                  aria-controls="descartados"
+                  onClick={startGuided}
+                  className="rounded bg-verde px-2.5 py-1 font-semibold text-papel hover:bg-tinta"
+                >
+                  Revisar uno por uno
+                </button>
+              )}
+              {rc.falsasAlarmas > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleFalseAlarms}
+                  aria-expanded={showFalseAlarms}
+                  aria-controls="falsas-alarmas"
                   className="rounded border border-linea-fuerte bg-hoja px-2.5 py-1 font-medium hover:bg-papel"
                 >
-                  {showDismissed ? "Ocultar descartados" : "Ver descartados"}
+                  {showFalseAlarms ? "Ocultar falsas alarmas" : "Ver falsas alarmas"}
                 </button>
               )}
               {undoStack.length > 0 && (
@@ -466,16 +522,27 @@ export function DetectorApp() {
             </div>
           )}
 
-          <div className="ml-auto flex gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gris">Descargar PDF:</span>
             <button
               type="button"
-              onClick={downloadMarkedPdf}
-              disabled={running || exporting}
-              aria-busy={exporting}
-              title={running ? "Disponible cuando termine el análisis" : undefined}
+              onClick={() => downloadMarkedPdf("completo")}
+              disabled={running || !!exporting}
+              aria-busy={exporting === "completo"}
+              title={running ? "Disponible cuando termine el análisis" : "Confirmados y sin revisar, cada uno con su estado"}
               className="rounded bg-verde px-3.5 py-2 text-sm font-semibold text-papel hover:bg-tinta disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {exporting ? "Armando el PDF…" : "Descargar PDF con marcas"}
+              {exporting === "completo" ? "Armando el PDF…" : "Informe completo"}
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadMarkedPdf("revisado")}
+              disabled={running || !!exporting}
+              aria-busy={exporting === "revisado"}
+              title={running ? "Disponible cuando termine el análisis" : "Sólo lo que confirmaste"}
+              className="rounded border border-verde bg-hoja px-3.5 py-2 text-sm font-semibold text-verde hover:bg-papel disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {exporting === "revisado" ? "Armando el PDF…" : "Informe revisado"}
             </button>
             <button type="button" onClick={reset} className="rounded border border-linea-fuerte bg-hoja px-3.5 py-2 text-sm font-medium hover:bg-papel">
               Analizar otro PDF
@@ -509,12 +576,8 @@ export function DetectorApp() {
 
       <div className="mx-auto grid w-full max-w-[1600px] flex-1 gap-6 px-4 py-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-8">
-          {showDismissed && reviewed.dismissed.length > 0 && (
-            <DismissedList
-              items={reviewed.dismissed}
-              onRestore={(page, firma) => changeReview(restore(review, page, firma))}
-              onClose={() => setShowDismissed(false)}
-            />
+          {showFalseAlarms && reviewed.falseAlarms.length > 0 && (
+            <FalseAlarmList items={reviewed.falseAlarms} onDecide={decideOn} onClose={() => setShowFalseAlarms(false)} />
           )}
           {hasScanned && (
           <p className="flex gap-2 rounded border border-cercania/40 bg-cercania-suave px-3 py-2 text-sm text-tinta">
@@ -538,7 +601,7 @@ export function DetectorApp() {
               showNear={showNear}
               zoom={zoom}
               onSelect={select}
-              onDismiss={markOk}
+              onDecide={decideOn}
               onMark={addMark}
               onRemoveMark={removeMark}
               onNote={noteMark}
@@ -559,13 +622,30 @@ export function DetectorApp() {
               showNear={showNear}
               onToggleNear={setShowNear}
               onSelect={select}
-              onDismiss={markOk}
+              onDecide={decideOn}
               onRemoveMark={removeMark}
               onRetry={retry}
             />
           </div>
         </aside>
       </div>
+      {guided && (
+        <>
+          {/* Lugar para la barra fija: el final de la lista y de las páginas no queda tapado. */}
+          <div aria-hidden className="h-[var(--guia-alto,0px)] shrink-0" />
+          <GuidedReview
+            current={findings.find((f) => f.id === selectedId) ?? null}
+            pending={rc.porRevisar}
+            total={findings.length}
+            stillRunning={pages.some((p) => p.status === "pendiente" || p.status === "analizando")}
+            onDecide={decideGuided}
+            onPrev={() => step(-1)}
+            onNext={() => step(1)}
+            onNextPending={goNextPending}
+            onExit={() => setGuided(false)}
+          />
+        </>
+      )}
     </div>
   );
 }

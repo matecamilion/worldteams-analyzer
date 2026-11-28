@@ -1,7 +1,7 @@
 // Revisión del usuario en el navegador (localStorage), por PDF: revisor:revision:<SHA-256 del PDF>.
 // Sin DETECTOR_VERSION a propósito: una versión nueva del detector no borra lo que la persona revisó.
 // Aparte de la caché de resultados: "Reintentar" o un cambio de versión no la tocan.
-import { isEmptyReview, type Review } from "@/lib/detector/review";
+import { isEmptyReview, migrateReview, type Review } from "@/lib/detector/review";
 
 const PREFIX = "revisor:revision:";
 const INDEX = "revisor:revision:indice";
@@ -23,8 +23,8 @@ function readIndex(storage: Storage): string[] {
 export function loadReview(hash: string, storage: Storage | undefined = globalThis.localStorage): Review {
   try {
     const raw = storage?.getItem(keyOf(hash));
-    const v = raw ? JSON.parse(raw) : {};
-    return v && typeof v === "object" && !Array.isArray(v) ? (v as Review) : {};
+    // Las revisiones guardadas con el formato anterior ("Está bien") se migran al leerlas.
+    return raw ? migrateReview(JSON.parse(raw)) : {};
   } catch {
     return {};
   }

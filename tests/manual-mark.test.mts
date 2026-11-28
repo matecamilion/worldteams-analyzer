@@ -5,7 +5,7 @@ import { PDFDocument } from "pdf-lib";
 import { loadPdf } from "../lib/detector/pdf";
 import { buildMarkedPdf, findingScreenBox, screenRectToPdf, viewportSize, type PageGeometry } from "../lib/detector/marked-pdf";
 import { numberFindings, summarize } from "../lib/detector/report";
-import { addManual, applyReview, dismiss, removeManual, setManualNote, type Review } from "../lib/detector/review";
+import { addManual, applyReview, decide, removeManual, setManualNote, type Review } from "../lib/detector/review";
 import { clampView, dragToPageBox, pageToScreen, screenToPage, translation, type View } from "../lib/client/zoom";
 import type { PageResult } from "../lib/detector/types";
 
@@ -104,7 +104,7 @@ for (const file of ["4-vectorial-rotado.pdf", "5-cad-rotado.pdf", "6-escaneado-r
   });
 }
 
-test("marca a mano: es un choque, se cuenta, se numera, lleva nota, no se descarta y se puede borrar", async () => {
+test("marca a mano: es un choque confirmado, se cuenta, se numera, lleva nota y se puede borrar", async () => {
   const W = 800;
   const H = 600;
   const base = [emptyPage(1, W, H, {
@@ -127,7 +127,8 @@ test("marca a mano: es un choque, se cuenta, se numera, lleva nota, no se descar
   assert.deepEqual(m.texts, []);
   assert.deepEqual(m.boxNorm, { x: 300 / W, y: 50 / H, w: 80 / W, h: 40 / H });
   assert.equal(summarize(r.pages).choques, 2);
-  assert.equal(dismiss(review, m), review, "una marca a mano no se descarta: se borra");
+  assert.equal(m.reviewState, "confirmado", "lo agregado a mano nace confirmado");
+  assert.equal(decide(review, m, "falsa_alarma"), review, "una marca a mano no se revisa: se borra");
   review = removeManual(review, 1, "abc");
   assert.equal(summarize(applyReview(base, review).pages).choques, 1);
 

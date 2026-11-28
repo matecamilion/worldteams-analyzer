@@ -7,11 +7,12 @@ import { recordFinishedRun, type PageOutcome } from "@/lib/client/historial";
 import { openPdf, validatePdfFile } from "@/lib/client/pdf";
 import { loadReview, saveReview } from "@/lib/client/review-store";
 import { PAGINAS_EN_PARALELO, runPages, type PageAttempt } from "@/lib/client/run-pages";
-import { addManual, applyReview, decide, removeManual, setManualNote, type Review, type ReviewState } from "@/lib/detector/review";
+import { addManual, applyReview, decide, nextToReview, removeManual, setManualNote, type Review, type ReviewState } from "@/lib/detector/review";
 import { numberFindings, summarize } from "@/lib/detector/report";
 import type { Finding, PageResult } from "@/lib/detector/types";
 import { PageView, type PageStatus, type ZoomCommand } from "./PageView";
 import { FalseAlarmList } from "./FalseAlarmList";
+import { GuidedReview } from "./GuidedReview";
 import { ResultsPanel } from "./ResultsPanel";
 import { UploadZone } from "./UploadZone";
 
@@ -93,6 +94,8 @@ export function DetectorApp() {
   /** Estados anteriores de la revisión, para "Deshacer" (sólo en memoria). */
   const [undoStack, setUndoStack] = useState<Review[]>([]);
   const [showFalseAlarms, setShowFalseAlarms] = useState(false);
+  /** "Revisar uno por uno": recorre los hallazgos por revisar con la pregunta abajo. */
+  const [guided, setGuided] = useState(false);
 
   const setPage = (page: number, patch: Partial<PageEntry>) =>
     setPages((prev) => prev.map((p) => (p.page === page ? { ...p, ...patch } : p)));
@@ -158,6 +161,7 @@ export function DetectorApp() {
         setReview(hash ? loadReview(hash) : {});
         setUndoStack([]);
         setShowFalseAlarms(false);
+        setGuided(false);
         setSelectedId(null);
         setZoom(null);
         zoomedPage.current = null;
@@ -278,29 +282,35 @@ export function DetectorApp() {
     zoomedPage.current = zoomed ? page : zoomedPage.current === page ? null : zoomedPage.current;
   }, []);
 
-  // Teclado: ← → recorren los hallazgos visibles; Esc vuelve a la página completa.
-  const navigable = useMemo(() => findings.filter((f) => showNear || f.severity !== "cercania"), [findings, showNear]);
+  // Teclado: ← → recorren los hallazgos visibles; Esc vuelve a la página completa (y sale del modo guiado).
+  const navigable = useMemo(
+    () => (guided ? findings : findings.filter((f) => showNear || f.severity !== "cercania")),
+    [findings, showNear, guided],
+  );
+  /** Anterior / siguiente hallazgo (teclas ← → y botones del modo guiado), dando la vuelta. */
+  const step = (dir: 1 | -1) => {
+    if (!navigable.length) return;
+    const i = navigable.findIndex((f) => f.id === selectedId);
+    const next = i === -1 ? (dir === 1 ? 0 : navigable.length - 1) : (i + dir + navigable.length) % navigable.length;
+    select(navigable[next].id);
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
       if (e.altKey || e.ctrlKey || e.metaKey || el.closest("input, textarea, select, [contenteditable]")) return;
       if (e.key === "Escape") {
+        setGuided(false);
         showFullPage();
         return;
       }
       if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
       if (!navigable.length) return;
       e.preventDefault();
-      const i = navigable.findIndex((f) => f.id === selectedId);
-      const next =
-        i === -1
-          ? e.key === "ArrowRight" ? 0 : navigable.length - 1
-          : (i + (e.key === "ArrowRight" ? 1 : -1) + navigable.length) % navigable.length;
-      select(navigable[next].id);
+      step(e.key === "ArrowRight" ? 1 : -1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigable, selectedId, select, showFullPage]);
+  }, [navigable, selectedId, select, showFullPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Arma el PDF con marcas en el navegador (pdf-lib se carga recién acá): nada pasa por el servidor. */
   const downloadMarkedPdf = async () => {
@@ -378,6 +388,24 @@ export function DetectorApp() {
     setReview(prev);
     if (loaded?.hash) saveReview(loaded.hash, prev);
   };
+  /** Modo guiado: arranca en el primer hallazgo por revisar (o en el seleccionado, si lo está). */
+  const startGuided = () => {
+    setGuided(true);
+    const current = findings.find((f) => f.id === selectedId);
+    const first = current?.reviewState === "por_revisar" ? current : nextToReview(findings, null);
+    if (first) select(first.id);
+  };
+  const goNextPending = () => {
+    const f = nextToReview(findings, selectedId);
+    if (f) select(f.id);
+  };
+  /** En el modo guiado, decidir avanza al próximo por revisar; si no queda ninguno, se queda (y avisa). */
+  const decideGuided = (f: Finding, state: ReviewState) => {
+    decideOn(f, state);
+    if (state === "por_revisar") return;
+    const next = nextToReview(findings, f.id, f.id);
+    if (next) select(next.id);
+  };
   const toggleFalseAlarms = () => {
     setShowFalseAlarms((v) => !v);
     requestAnimationFrame(() => document.getElementById("falsas-alarmas")?.scrollIntoView({ block: "nearest" }));
@@ -448,6 +476,15 @@ export function DetectorApp() {
                 {" · "}
                 <span className="num font-semibold text-tinta">{rc.falsasAlarmas}</span> {rc.falsasAlarmas === 1 ? "falsa alarma" : "falsas alarmas"}
               </span>
+              {rc.total > 0 && !guided && (
+                <button
+                  type="button"
+                  onClick={startGuided}
+                  className="rounded bg-verde px-2.5 py-1 font-semibold text-papel hover:bg-tinta"
+                >
+                  Revisar uno por uno
+                </button>
+              )}
               {rc.falsasAlarmas > 0 && (
                 <button
                   type="button"
@@ -563,6 +600,23 @@ export function DetectorApp() {
           </div>
         </aside>
       </div>
+      {guided && (
+        <>
+          {/* Lugar para la barra fija: el final de la lista y de las páginas no queda tapado. */}
+          <div aria-hidden className="h-[var(--guia-alto,0px)] shrink-0" />
+          <GuidedReview
+            current={findings.find((f) => f.id === selectedId) ?? null}
+            pending={rc.porRevisar}
+            total={findings.length}
+            stillRunning={pages.some((p) => p.status === "pendiente" || p.status === "analizando")}
+            onDecide={decideGuided}
+            onPrev={() => step(-1)}
+            onNext={() => step(1)}
+            onNextPending={goNextPending}
+            onExit={() => setGuided(false)}
+          />
+        </>
+      )}
     </div>
   );
 }

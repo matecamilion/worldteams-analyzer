@@ -591,7 +591,7 @@ export function PageView({
 
         {/* Controles fijos en pantalla: el marco puede ser más alto que la ventana y su borde quedar fuera de vista. */}
         {zoomed && (
-          <div className="fixed bottom-4 left-4 z-30 flex items-center gap-2 sm:left-6">
+          <div className="fixed bottom-[calc(1rem+var(--guia-alto,0px))] left-4 z-30 flex items-center gap-2 sm:left-6">
             <span className="num rounded bg-verde/85 px-2 py-1 text-xs font-medium text-papel" aria-live="polite">
               {Math.round(view!.s * 100)}&nbsp;%
             </span>

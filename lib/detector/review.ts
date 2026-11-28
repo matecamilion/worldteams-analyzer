@@ -66,7 +66,7 @@ export function iou(a: Rect, b: Rect): number {
 }
 
 /** Estado de un hallazgo tal como sale de applyReview (las falsas alarmas van aparte). */
-export const stateOf = (f: Finding): ReviewState => f.reviewState ?? "por_revisar";
+export const stateOf = (f: Pick<Finding, "reviewState">): ReviewState => f.reviewState ?? "por_revisar";
 
 /**
  * Cambia el estado de un hallazgo: confirmado, falsa alarma o de vuelta a por revisar. Reemplaza
@@ -265,4 +265,18 @@ export function migrateReview(raw: unknown): Review {
     if (decisiones.length || manuales.length) out[page] = { decisiones, ...(manuales.length ? { manuales } : {}) };
   }
   return out;
+}
+
+/**
+ * Modo guiado: el próximo hallazgo por revisar después de `fromId`, en el orden de la lista
+ * (la numeración), dando la vuelta al final. `skip` se saltea aunque figure por revisar (el que
+ * se acaba de decidir, porque su estado nuevo todavía no está aplicado). Null si no queda ninguno.
+ */
+export function nextToReview<T extends Pick<Finding, "id" | "reviewState">>(list: T[], fromId: string | null, skip?: string): T | null {
+  const start = fromId === null ? -1 : list.findIndex((f) => f.id === fromId);
+  for (let k = 1; k <= list.length; k++) {
+    const f = list[(start + k + list.length) % list.length];
+    if (f.id !== skip && stateOf(f) === "por_revisar") return f;
+  }
+  return null;
 }
